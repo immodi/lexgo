@@ -21,6 +21,33 @@ app.post("/json", function(req, res)
 	res.json({ message = response })
 end)
 
+app.put("/put-test", function(req, res)
+	local body = req.body
+	local message = body.message or "default PUT message"
+
+	res.status(200)
+	res.json({ method = "PUT", message = message })
+end)
+
+app.delete("/delete-test", function(req, res)
+	res.status(200)
+	res.json({ method = "DELETE", message = "Deleted successfully" })
+end)
+
+app.patch("/patch-test", function(req, res)
+	local body = req.body
+	local patchField = body.patch or "none"
+
+	res.status(200)
+	res.json({ method = "PATCH", patch = patchField })
+end)
+
+app.options("/options-test", function(req, res)
+	res.status(200)
+	res.setHeader("Allow", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+	res.raw("")
+end)
+
 app.get("/search", function(req, res)
 	local query = req.query
 	local q = query.q and query.q[1] or "nothing"
@@ -75,4 +102,24 @@ end)
 app.notFound(function(req, res)
 	res.status(404)
 	res.html("<h1>Not Found</h1>")
+end)
+
+app.get("/boom", function(req, res)
+	error("something exploded")
+end)
+
+app.get("/throw", function(req, res)
+	res.status(200)
+	res.json({ message = "this is a json response" })
+	res.html("<h1>THis is illegal</h1>")
+end)
+
+app.error(function(err, res)
+	res.status(500)
+	res.html('<h1 style="color: red;">Internal Server Error</h1>')
+end)
+
+app.use(function(req, next)
+	print("Request received for:", req.url)
+	next()
 end)

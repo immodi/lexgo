@@ -3,34 +3,44 @@ package router
 import (
 	"encoding/json"
 	"fmt"
-	"immodi/lexgo/internal/vm"
 	"net/http"
 
 	lua "github.com/yuin/gopher-lua"
+	"immodi/lexgo/internal/vm"
 )
 
 type LuaResponse struct {
 	HttpWriter http.ResponseWriter
 	LuaVm      *vm.LuaVm
+	Written    bool
 	statusCode int
 }
 
 func (res *LuaResponse) MakeLuaResponse() *lua.LTable {
-	var luaRes *lua.LTable
+	L := res.LuaVm.L
+	luaRes := L.NewTable()
 
-	res.LuaVm.WithLock(func(L *lua.LState) error {
-		luaRes = L.NewTable()
+	L.SetField(luaRes, "status", L.NewFunction(res.handleStatus))
+	L.SetField(luaRes, "setHeader", L.NewFunction(res.handleSetHeader))
 
-		L.SetField(luaRes, "status", L.NewFunction(res.handleStatus))
-		L.SetField(luaRes, "html", L.NewFunction(res.handleHTML))
-		L.SetField(luaRes, "raw", L.NewFunction(res.handleRaw))
-		L.SetField(luaRes, "json", L.NewFunction(res.handleJSON))
-		L.SetField(luaRes, "setHeader", L.NewFunction(res.handleSetHeader))
-
-		return nil
-	})
+	L.SetField(luaRes, "html", L.NewFunction(res.write(res.handleHTML)))
+	L.SetField(luaRes, "json", L.NewFunction(res.write(res.handleJSON)))
+	L.SetField(luaRes, "raw", L.NewFunction(res.write(res.handleRaw)))
 
 	return luaRes
+}
+
+func (res *LuaResponse) write(fn func(L *lua.LState) int) func(L *lua.LState) int {
+	return func(L *lua.LState) int {
+
+		if res.Written {
+			L.RaiseError("response already sent")
+			return 0
+		}
+
+		res.Written = true
+		return fn(L)
+	}
 }
 
 func (res *LuaResponse) handleStatus(L *lua.LState) int {
@@ -44,22 +54,20 @@ func (res *LuaResponse) handleStatus(L *lua.LState) int {
 
 func (res *LuaResponse) handleHTML(L *lua.LState) int {
 	msg := L.CheckString(1)
-	res.ensureStatusCode()
+	res.ensureStatus()
 
 	res.HttpWriter.Header().Set("Content-Type", "text/html")
 	res.HttpWriter.WriteHeader(res.statusCode)
 	fmt.Fprint(res.HttpWriter, msg)
-
 	return 0
 }
 
 func (res *LuaResponse) handleRaw(L *lua.LState) int {
 	msg := L.CheckString(1)
-	res.ensureStatusCode()
+	res.ensureStatus()
 
 	res.HttpWriter.WriteHeader(res.statusCode)
 	fmt.Fprint(res.HttpWriter, msg)
-
 	return 0
 }
 
@@ -69,15 +77,14 @@ func (res *LuaResponse) handleJSON(L *lua.LState) int {
 
 	data, err := json.Marshal(goMap)
 	if err != nil {
-		L.RaiseError("failed to marshal JSON: %v", err)
+		L.RaiseError("json marshal failed: %v", err)
 		return 0
 	}
 
-	res.ensureStatusCode()
+	res.ensureStatus()
 	res.HttpWriter.Header().Set("Content-Type", "application/json")
 	res.HttpWriter.WriteHeader(res.statusCode)
-	fmt.Fprint(res.HttpWriter, string(data))
-
+	res.HttpWriter.Write(data)
 	return 0
 }
 
@@ -88,7 +95,7 @@ func (res *LuaResponse) handleSetHeader(L *lua.LState) int {
 	return 0
 }
 
-func (res *LuaResponse) ensureStatusCode() {
+func (res *LuaResponse) ensureStatus() {
 	if res.statusCode == 0 {
 		res.statusCode = http.StatusOK
 	}
