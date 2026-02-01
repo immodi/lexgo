@@ -15,17 +15,18 @@ type App struct {
 }
 
 func New(luaFile string) (*App, error) {
-	LuaVm := vm.MakeLuaVm()
-	Router := router.MakeRouter(LuaVm)
+	luaVm := vm.MakeLuaVm()
+	router, routerDriver := router.MakeRouter(luaVm)
+	vm.RegisterFramework(router.LuaVm.L, routerDriver)
 
-	err := LuaVm.LoadMainLuaFile(luaFile)
+	err := luaVm.LoadMainLuaFile(luaFile)
 	if err != nil {
 		return nil, err
 	}
 
 	return &App{
-		LuaVm:  LuaVm.L,
-		Router: Router,
+		LuaVm:  luaVm.L,
+		Router: router,
 	}, nil
 }
 

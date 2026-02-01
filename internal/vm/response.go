@@ -1,4 +1,4 @@
-package router
+package vm
 
 import (
 	"encoding/json"
@@ -6,12 +6,11 @@ import (
 	"net/http"
 
 	lua "github.com/yuin/gopher-lua"
-	"immodi/lexgo/internal/vm"
 )
 
 type LuaResponse struct {
 	HttpWriter http.ResponseWriter
-	LuaVm      *vm.LuaVm
+	LuaVm      *LuaVm
 	Written    bool
 	statusCode int
 }

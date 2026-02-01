@@ -1,8 +1,10 @@
-package router
+package vm
 
 import (
+	"bytes"
 	"encoding/json"
-	"immodi/lexgo/internal/vm"
+	"fmt"
+	"io"
 	"net/http"
 
 	lua "github.com/yuin/gopher-lua"
@@ -21,7 +23,7 @@ const (
 
 type LuaRequest struct {
 	HttpRequest *http.Request
-	LuaVm       *vm.LuaVm
+	LuaVm       *LuaVm
 }
 
 func (req *LuaRequest) MakeLuaRequest() *lua.LTable {
@@ -64,11 +66,22 @@ func (req *LuaRequest) shouldParseBody() bool {
 }
 
 func (req *LuaRequest) parseJSONBody(L *lua.LState, luaReq *lua.LTable) {
-	var bodyData map[string]any
-	err := json.NewDecoder(req.HttpRequest.Body).Decode(&bodyData)
-	if err == nil {
-		L.SetField(luaReq, "body", mapToLuaTable(L, bodyData))
+	bodyData := map[string]any{}
+
+	data, err := io.ReadAll(req.HttpRequest.Body)
+	if err != nil {
+		fmt.Println("Error reading body:", err)
 	}
+	req.HttpRequest.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if len(data) > 0 {
+		err = json.Unmarshal(data, &bodyData)
+		if err != nil {
+			fmt.Println("Warning: failed to decode JSON body:", err)
+		}
+	}
+
+	L.SetField(luaReq, "body", mapToLuaTable(L, bodyData))
 }
 
 func (req *LuaRequest) parseFormBody(L *lua.LState, luaReq *lua.LTable) {
