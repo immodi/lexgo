@@ -1,5 +1,13 @@
 local app = lexgo.new()
 
+-- app.use(lexgo.middlewares.logger)
+-- app.use(lexgo.middlewares.cors)
+-- app.use(function(req, res, next)
+-- 	print("Request received for:", req.url)
+-- 	res.setHeader("X-Request-Logged", "true")
+-- 	next()
+-- end)
+
 app.get("/", function(req, res)
 	res.status(500)
 	res.raw("Raw text")
@@ -7,6 +15,13 @@ end)
 
 app.get("/html", function(req, res)
 	res.html("<h1>Hello, this is an html response from Lua!</h1>")
+end)
+
+app.get("/params/:id/:name", function(req, res)
+	local id = req.params.id or "1"
+	local name = req.params.name or "Name"
+
+	res.html(string.format("<p>id: %s</p><p>name: %s</p>", id, name))
 end)
 
 app.get("/json", function(req, res)
@@ -119,12 +134,3 @@ app.error(function(err, res)
 	res.status(500)
 	res.html('<h1 style="color: red;">Internal Server Error</h1>')
 end)
-
-app.use(lexgo.middlewares.logger)
-app.use(lexgo.middlewares.cors)
-
--- app.use(function(req, res, next)
--- 	print("Request received for:", req.url)
--- 	res.setHeader("X-Request-Logged", "true")
--- 	next()
--- end)

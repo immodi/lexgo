@@ -24,6 +24,7 @@ const (
 type LuaRequest struct {
 	HttpRequest *http.Request
 	LuaVm       *LuaVm
+	Params      map[string]string
 }
 
 func (req *LuaRequest) MakeLuaRequest() *lua.LTable {
@@ -44,6 +45,7 @@ func (req *LuaRequest) setBasicFields(L *lua.LState, luaReq *lua.LTable) {
 	L.SetField(luaReq, "url", lua.LString(req.HttpRequest.URL.Path))
 
 	req.setQueryParameters(L, luaReq)
+	req.setRequestParameters(L, luaReq)
 }
 
 func (req *LuaRequest) setBodyField(L *lua.LState, luaReq *lua.LTable) {
@@ -121,6 +123,16 @@ func (req *LuaRequest) setQueryParameters(L *lua.LState, luaReq *lua.LTable) {
 	}
 
 	L.SetField(luaReq, "query", queryTbl)
+}
+
+func (req *LuaRequest) setRequestParameters(L *lua.LState, luaReq *lua.LTable) {
+	paramsTbl := L.NewTable()
+
+	for key, value := range req.Params {
+		L.SetField(paramsTbl, key, lua.LString(value))
+	}
+
+	L.SetField(luaReq, "params", paramsTbl)
 }
 
 // TODO: support file uploads

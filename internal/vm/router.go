@@ -6,7 +6,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-type HTTPHandler struct {
+type HTTPRoute struct {
 	Path   string
 	Method HTTPMethod
 }
