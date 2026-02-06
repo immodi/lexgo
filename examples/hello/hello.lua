@@ -1,3 +1,6 @@
+local lx = require("lua.libs.lx.init")
+local parser = require("lua.libs.lx.parser")
+
 local app = lexgo.new()
 
 -- app.use(lexgo.middlewares.logger)
@@ -7,6 +10,24 @@ local app = lexgo.new()
 -- 	res.setHeader("X-Request-Logged", "true")
 -- 	next()
 -- end)
+
+app.get("/lx-test", function(req, res)
+	local n = lx.div({
+		id = "main",
+		class = "container",
+		lx.h1({ "Hello from lx!" }),
+		lx.section({
+			class = "section-class",
+			lx.p({ class = "text-span", "This is a span" }),
+			lx.img({ true, src = "https://www.w3schools.com/html/img_girl.jpg" }),
+		}),
+	})
+
+	local html = parser(n)
+
+	res.status(200)
+	res.html(html)
+end)
 
 app.get("/", function(req, res)
 	res.status(500)

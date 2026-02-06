@@ -8,10 +8,19 @@ local lx = {
 -- Create element with node injected
 lx.element = element_module.element(lx.node)
 
+setmetatable(lx, {
+    __index = function(t, key)
+        -- ignore internal lookups
+        if type(key) ~= "string" then return nil end
 
--- define standard elements
-for _, tag in ipairs({ "div", "span" }) do
-    lx[tag] = lx.element(tag)
-end
+        -- create the element factory
+        local el = t.element(key)
+
+        -- cache it so next access is fast
+        rawset(t, key, el)
+
+        return el
+    end
+})
 
 return lx

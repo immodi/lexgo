@@ -6,25 +6,46 @@
 ---@param node_fn function
 ---@return function
 local function create_element(node_fn)
-    ---@param tag string
-    ---@return table
     return function(tag)
         return setmetatable({}, {
             __call = function(_, arg)
                 local props = {}
                 local children = {}
-                if type(arg) == "table" then
-                    for k, v in pairs(arg) do
-                        if type(k) == "string" then
-                            props[k] = v
-                        else
-                            table.insert(children, v)
-                        end
+                local isSelfClosing = false
+
+                -- if type(arg) == "table" then
+                --     if type(arg[1]) == "boolean" then
+                --         isSelfClosing = arg[1]
+                --         table.remove(arg, 1)
+                --     end
+                --
+                --     for k, v in pairs(arg) do
+                --         print(v)
+                --         if type(k) == "string" then
+                --             props[k] = v
+                --         else
+                --             table.insert(children, v)
+                --         end
+                --     end
+                -- elseif type(arg) == "boolean" then
+                --     isSelfClosing = arg
+                -- elseif type(arg) == "string" then
+                --     table.insert(children, arg)
+                -- end
+
+                for k, v in pairs(arg) do
+                    if type(k) == "number" and type(v) == "string" then
+                        table.insert(children, v)
+                    elseif type(k) == "number" and type(v) == "boolean" then
+                        isSelfClosing = v
+                    elseif type(k) == "number" and type(v) == "table" then
+                        table.insert(children, v)
+                    elseif type(k) == "string" then
+                        props[k] = v
                     end
-                elseif type(arg) == "string" then
-                    table.insert(children, arg)
                 end
-                return node_fn(tag, props, children)
+
+                return node_fn(tag, isSelfClosing, props, children)
             end
         })
     end
