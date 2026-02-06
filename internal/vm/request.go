@@ -1,0 +1,138 @@
+package vm
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	lua "github.com/yuin/gopher-lua"
+)
+
+type HTTPMethod string
+
+const (
+	GET     HTTPMethod = "GET"
+	POST    HTTPMethod = "POST"
+	PUT     HTTPMethod = "PUT"
+	DELETE  HTTPMethod = "DELETE"
+	PATCH   HTTPMethod = "PATCH"
+	OPTIONS HTTPMethod = "OPTIONS"
+)
+
+type LuaRequest struct {
+	HttpRequest *http.Request
+	LuaVm       *LuaVm
+	Params      map[string]string
+}
+
+func (req *LuaRequest) MakeLuaRequest() *lua.LTable {
+	var luaReq *lua.LTable
+
+	req.LuaVm.WithLock(func(L *lua.LState) error {
+		luaReq = L.NewTable()
+		req.setBasicFields(L, luaReq)
+		req.setBodyField(L, luaReq)
+		return nil
+	})
+
+	return luaReq
+}
+
+func (req *LuaRequest) setBasicFields(L *lua.LState, luaReq *lua.LTable) {
+	L.SetField(luaReq, "method", lua.LString(req.HttpRequest.Method))
+	L.SetField(luaReq, "url", lua.LString(req.HttpRequest.URL.Path))
+
+	req.setQueryParameters(L, luaReq)
+	req.setRequestParameters(L, luaReq)
+}
+
+func (req *LuaRequest) setBodyField(L *lua.LState, luaReq *lua.LTable) {
+	if !req.shouldParseBody() {
+		return
+	}
+
+	contentType := req.HttpRequest.Header.Get("Content-Type")
+	switch contentType {
+	case "application/json":
+		req.parseJSONBody(L, luaReq)
+	case "application/x-www-form-urlencoded":
+		req.parseFormBody(L, luaReq)
+	}
+}
+
+func (req *LuaRequest) shouldParseBody() bool {
+	method := req.HttpRequest.Method
+	return method == string(POST) || method == string(PUT) || method == string(PATCH)
+}
+
+func (req *LuaRequest) parseJSONBody(L *lua.LState, luaReq *lua.LTable) {
+	bodyData := map[string]any{}
+
+	data, err := io.ReadAll(req.HttpRequest.Body)
+	if err != nil {
+		fmt.Println("Error reading body:", err)
+	}
+	req.HttpRequest.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if len(data) > 0 {
+		err = json.Unmarshal(data, &bodyData)
+		if err != nil {
+			fmt.Println("Warning: failed to decode JSON body:", err)
+		}
+	}
+
+	L.SetField(luaReq, "body", mapToLuaTable(L, bodyData))
+}
+
+func (req *LuaRequest) parseFormBody(L *lua.LState, luaReq *lua.LTable) {
+	err := req.HttpRequest.ParseForm()
+	if err != nil {
+		return
+	}
+
+	formTable := L.NewTable()
+	for key, values := range req.HttpRequest.PostForm {
+		req.setFormField(L, formTable, key, values)
+	}
+	L.SetField(luaReq, "body", formTable)
+}
+
+func (req *LuaRequest) setFormField(L *lua.LState, formTable *lua.LTable, key string, values []string) {
+	if len(values) == 1 {
+		L.SetField(formTable, key, lua.LString(values[0]))
+	} else {
+		arr := L.NewTable()
+		for _, v := range values {
+			arr.Append(lua.LString(v))
+		}
+		L.SetField(formTable, key, arr)
+	}
+}
+
+func (req *LuaRequest) setQueryParameters(L *lua.LState, luaReq *lua.LTable) {
+	queryTbl := L.NewTable()
+
+	for key, values := range req.HttpRequest.URL.Query() {
+		valTbl := L.NewTable()
+		for _, v := range values {
+			valTbl.Append(lua.LString(v))
+		}
+		L.SetField(queryTbl, key, valTbl)
+	}
+
+	L.SetField(luaReq, "query", queryTbl)
+}
+
+func (req *LuaRequest) setRequestParameters(L *lua.LState, luaReq *lua.LTable) {
+	paramsTbl := L.NewTable()
+
+	for key, value := range req.Params {
+		L.SetField(paramsTbl, key, lua.LString(value))
+	}
+
+	L.SetField(luaReq, "params", paramsTbl)
+}
+
+// TODO: support file uploads
