@@ -20,7 +20,7 @@ setmetatable(lx, {
         rawset(t, key, el)
 
         return el
-    end
+    end,
 })
 
 return lx

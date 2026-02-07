@@ -7,31 +7,14 @@
 ---@return function
 local function create_element(node_fn)
     return function(tag)
+        if type(tag) ~= "string" or tag == "element" then
+            error("can't use 'lx.element' as a DOM element")
+        end
         return setmetatable({}, {
             __call = function(_, arg)
                 local props = {}
                 local children = {}
                 local isSelfClosing = false
-
-                -- if type(arg) == "table" then
-                --     if type(arg[1]) == "boolean" then
-                --         isSelfClosing = arg[1]
-                --         table.remove(arg, 1)
-                --     end
-                --
-                --     for k, v in pairs(arg) do
-                --         print(v)
-                --         if type(k) == "string" then
-                --             props[k] = v
-                --         else
-                --             table.insert(children, v)
-                --         end
-                --     end
-                -- elseif type(arg) == "boolean" then
-                --     isSelfClosing = arg
-                -- elseif type(arg) == "string" then
-                --     table.insert(children, arg)
-                -- end
 
                 for k, v in pairs(arg) do
                     if type(k) == "number" and type(v) == "string" then
@@ -46,7 +29,7 @@ local function create_element(node_fn)
                 end
 
                 return node_fn(tag, isSelfClosing, props, children)
-            end
+            end,
         })
     end
 end

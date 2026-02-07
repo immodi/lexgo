@@ -1,7 +1,7 @@
-local lx = require("lua.libs.lx.init")
+local lx = require("lua.libs.lx.lx")
 
-print(lx.node("h1", nil, nil))
-print("\n")
+-- print(lx.node("h1", false, { class = "text-area" }, {}))
+-- print("\n")
 
 local n = lx.div {
     "Hello",
@@ -9,4 +9,4 @@ local n = lx.div {
     lx.span { "Nested" }
 }
 
-print(n)
+print(n:render())

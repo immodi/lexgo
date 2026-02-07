@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"immodi/lexgo/internal/router"
 	"immodi/lexgo/internal/vm"
 	"log"
@@ -12,21 +13,30 @@ import (
 type App struct {
 	LuaVm  *lua.LState
 	Router *router.Router
+	Port   int32
 }
 
 func New(luaFile string) (*App, error) {
 	luaVm := vm.MakeLuaVm()
 	router, routerDriver := router.MakeRouter(luaVm)
-	vm.RegisterFramework(router.LuaVm.L, routerDriver)
-
-	err := luaVm.LoadMainLuaFile(luaFile)
+	data, err := vm.RegisterFramework(router.LuaVm.L, routerDriver)
 	if err != nil {
 		return nil, err
+	}
+
+	err = luaVm.LoadMainLuaFile(luaFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if data.Port == 0 {
+		return nil, fmt.Errorf("invalid application port, please use 'app.listen()'")
 	}
 
 	return &App{
 		LuaVm:  luaVm.L,
 		Router: router,
+		Port:   data.Port,
 	}, nil
 }
 

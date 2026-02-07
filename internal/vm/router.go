@@ -25,7 +25,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
 
-		// router.Routes[Handler{Path: path, Method: GET}] = fn
 		routerDriver.RegisterLuaMethodHandler(fn, path, "GET")
 		return 0
 	}))
@@ -33,8 +32,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 	L.SetField(appTbl, "post", L.NewFunction(func(L *lua.LState) int {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
-
-		// router.Routes[Handler{Path: path, Method: POST}] = fn
 
 		routerDriver.RegisterLuaMethodHandler(fn, path, "POST")
 		return 0
@@ -44,8 +41,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
 
-		// router.Routes[Handler{Path: path, Method: PUT}] = fn
-
 		routerDriver.RegisterLuaMethodHandler(fn, path, "PUT")
 		return 0
 	}))
@@ -53,8 +48,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 	L.SetField(appTbl, "delete", L.NewFunction(func(L *lua.LState) int {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
-
-		// router.Routes[Handler{Path: path, Method: DELETE}] = fn
 
 		routerDriver.RegisterLuaMethodHandler(fn, path, "DELETE")
 		return 0
@@ -64,8 +57,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
 
-		// router.Routes[Handler{Path: path, Method: PATCH}] = fn
-
 		routerDriver.RegisterLuaMethodHandler(fn, path, "PATCH")
 		return 0
 	}))
@@ -74,8 +65,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 		path := L.CheckString(1)
 		fn := L.CheckFunction(2)
 
-		// router.Routes[Handler{Path: path, Method: OPTIONS}] = fn
-
 		routerDriver.RegisterLuaMethodHandler(fn, path, "OPTIONS")
 		return 0
 	}))
@@ -83,7 +72,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 	L.SetField(appTbl, "notFound", L.NewFunction(func(L *lua.LState) int {
 		fn := L.CheckFunction(1)
 
-		// router.NotFoundFunc = fn
 		routerDriver.ResgisterLuaNotFoundHandler(fn)
 		return 0
 	}))
@@ -91,7 +79,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 	L.SetField(appTbl, "error", L.NewFunction(func(L *lua.LState) int {
 		fn := L.CheckFunction(1)
 
-		// router.ServerErrorFunc = fn
 		routerDriver.ResgisterLuaErrorHandler(fn)
 		return 0
 	}))
@@ -99,7 +86,6 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 	L.SetField(appTbl, "use", L.NewFunction(func(L *lua.LState) int {
 		fn := L.CheckFunction(1)
 
-		// router.MiddleWares = append(router.MiddleWares, fn)
 		routerDriver.RegisterLuaMiddleware(fn)
 		return 0
 	}))
@@ -108,6 +94,11 @@ func ResgisterRouter(L *lua.LState, routerDriver RouterDriver) *lua.LTable {
 }
 
 func ExecuteLuaHandler(L *lua.LState, errFn *lua.LFunction, fn *lua.LFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
+	if fn == nil {
+		http.Error(luaRes.HttpWriter, "404 Not Found", http.StatusNotFound)
+		return
+	}
+
 	L.Push(fn)
 	L.Push(luaReq.MakeLuaRequest())
 	L.Push(luaRes.MakeLuaResponse())

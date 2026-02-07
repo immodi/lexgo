@@ -93,7 +93,6 @@ func (router *Router) matchRoute(incoming vm.HTTPRoute) *Handler {
 				Params:  params,
 			}
 		}
-
 	}
 
 	return nil

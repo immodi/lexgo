@@ -1,3 +1,5 @@
+local parser = require("lua.libs.lx.parser")
+
 ---@class Node
 ---@field tag string
 ---@field isSelfClosing boolean
@@ -12,7 +14,7 @@ local function fmt(v)
     if type(v) == "boolean" then
         return v and "true" or "false"
     elseif type(v) == "string" then
-        return '"' .. v .. '"' -- wrap strings in quotes
+        return '"' .. v .. '"'
     else
         return tostring(v)
     end
@@ -28,12 +30,25 @@ function lx.node(tag, isSelfClosing, props, children)
     isSelfClosing = isSelfClosing or false
     children = children or {}
 
-    return setmetatable({
+    local element = {
         tag = tag,
         isSelfClosing = isSelfClosing,
         props = props,
         children = children,
-    }, {
+    }
+
+
+    ---@param self table
+    ---@return string
+    element.render = function(self)
+        if type(self) == "nil" then
+            error("can't render a nil value, you need to pass the lx element to render()")
+        end
+
+        return parser(self)
+    end
+
+    return setmetatable(element, {
         ---@param self Node
         __tostring = function(self)
             local props_str = "{"
@@ -59,6 +74,8 @@ function lx.node(tag, isSelfClosing, props, children)
                 children_str
             )
         end,
+
+
     })
 end
 
