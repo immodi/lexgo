@@ -2,54 +2,52 @@ package vm
 
 import (
 	"fmt"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
-func luaTableToMap(tbl *lua.LTable) map[string]any {
+func luaTableToMap(tbl *LuaTable) map[string]any {
 	result := make(map[string]any)
-	tbl.ForEach(func(key, value lua.LValue) {
+	tbl.ForEach(func(key, value LuaValue) {
 		var k string
 		switch key := key.(type) {
-		case lua.LString:
+		case LuaString:
 			k = string(key)
-		case lua.LNumber:
+		case LuaNumber:
 			k = fmt.Sprintf("%v", float64(key))
 		default:
-			k = key.String()
+			k = key.ToLuaValue().String()
 		}
 
 		switch v := value.(type) {
-		case lua.LString:
+		case LuaString:
 			result[k] = string(v)
-		case lua.LNumber:
+		case LuaNumber:
 			result[k] = float64(v)
-		case *lua.LTable:
-			result[k] = luaTableToMap(v)
-		case lua.LBool:
+		case LuaBool:
 			result[k] = bool(v)
+		case *LuaTable:
+			result[k] = luaTableToMap(v)
 		default:
-			result[k] = v.String()
+			result[k] = v.ToLuaValue().String()
 		}
 	})
 	return result
 }
 
-func mapToLuaTable(L *lua.LState, data map[string]any) *lua.LTable {
-	tbl := L.NewTable()
+func mapToLuaTable(LVm LVm, data map[string]any) *LuaTable {
+	tbl := LVm.NewTable()
 	for k, v := range data {
 		switch val := v.(type) {
 		case string:
-			L.SetField(tbl, k, lua.LString(val))
+			tbl.SetField(k, LuaString(val))
 		case float64:
-			L.SetField(tbl, k, lua.LNumber(val))
+			tbl.SetField(k, LuaNumber(val))
 		case bool:
-			L.SetField(tbl, k, lua.LBool(val))
+			tbl.SetField(k, LuaBool(val))
 		case map[string]any:
-			L.SetField(tbl, k, mapToLuaTable(L, val))
+			tbl.SetField(k, mapToLuaTable(LVm, val))
 		default:
-			L.SetField(tbl, k, lua.LString(fmt.Sprintf("%v", val)))
+			tbl.SetField(k, LuaString(fmt.Sprintf("%v", val)))
 		}
 	}
-	return tbl
+	return &tbl
 }

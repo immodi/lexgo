@@ -10,23 +10,28 @@ import (
 
 type LuaResponse struct {
 	HttpWriter http.ResponseWriter
-	LuaVm      *LuaVm
+	LuaVm      LVm
 	Written    bool
 	statusCode int
 }
 
-func (res *LuaResponse) MakeLuaResponse() *lua.LTable {
-	L := res.LuaVm.L
-	luaRes := L.NewTable()
+func (res *LuaResponse) MakeLuaResponse() *LuaTable {
+	luaRes := res.LuaVm.NewTable()
 
-	L.SetField(luaRes, "status", L.NewFunction(res.handleStatus))
-	L.SetField(luaRes, "setHeader", L.NewFunction(res.handleSetHeader))
+	// Create LuaFunction wrappers for each handler
+	statusFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.handleStatus)}
+	setHeaderFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.handleSetHeader)}
+	htmlFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleHTML))}
+	jsonFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleJSON))}
+	rawFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleRaw))}
 
-	L.SetField(luaRes, "html", L.NewFunction(res.write(res.handleHTML)))
-	L.SetField(luaRes, "json", L.NewFunction(res.write(res.handleJSON)))
-	L.SetField(luaRes, "raw", L.NewFunction(res.write(res.handleRaw)))
+	luaRes.SetField("status", statusFn)
+	luaRes.SetField("setHeader", setHeaderFn)
+	luaRes.SetField("html", htmlFn)
+	luaRes.SetField("json", jsonFn)
+	luaRes.SetField("raw", rawFn)
 
-	return luaRes
+	return &luaRes
 }
 
 func (res *LuaResponse) write(fn func(L *lua.LState) int) func(L *lua.LState) int {

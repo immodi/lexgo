@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
 type HTTPMethod string
@@ -23,42 +21,34 @@ const (
 
 type LuaRequest struct {
 	HttpRequest *http.Request
-	LuaVm       *LuaVm
+	LuaVm       LVm
 	Params      map[string]string
 }
 
-func (req *LuaRequest) MakeLuaRequest() *lua.LTable {
-	var luaReq *lua.LTable
-
-	req.LuaVm.WithLock(func(L *lua.LState) error {
-		luaReq = L.NewTable()
-		req.setBasicFields(L, luaReq)
-		req.setBodyField(L, luaReq)
-		return nil
-	})
-
-	return luaReq
+func (req *LuaRequest) MakeLuaRequest() *LuaTable {
+	luaReq := req.LuaVm.NewTable()
+	req.setBasicFields(&luaReq)
+	req.setBodyField(&luaReq)
+	return &luaReq
 }
 
-func (req *LuaRequest) setBasicFields(L *lua.LState, luaReq *lua.LTable) {
-	L.SetField(luaReq, "method", lua.LString(req.HttpRequest.Method))
-	L.SetField(luaReq, "url", lua.LString(req.HttpRequest.URL.Path))
-
-	req.setQueryParameters(L, luaReq)
-	req.setRequestParameters(L, luaReq)
+func (req *LuaRequest) setBasicFields(luaReq *LuaTable) {
+	luaReq.SetField("method", LuaString(req.HttpRequest.Method))
+	luaReq.SetField("url", LuaString(req.HttpRequest.URL.Path))
+	req.setQueryParameters(luaReq)
+	req.setRequestParameters(luaReq)
 }
 
-func (req *LuaRequest) setBodyField(L *lua.LState, luaReq *lua.LTable) {
+func (req *LuaRequest) setBodyField(luaReq *LuaTable) {
 	if !req.shouldParseBody() {
 		return
 	}
-
 	contentType := req.HttpRequest.Header.Get("Content-Type")
 	switch contentType {
 	case "application/json":
-		req.parseJSONBody(L, luaReq)
+		req.parseJSONBody(luaReq)
 	case "application/x-www-form-urlencoded":
-		req.parseFormBody(L, luaReq)
+		req.parseFormBody(luaReq)
 	}
 }
 
@@ -67,72 +57,62 @@ func (req *LuaRequest) shouldParseBody() bool {
 	return method == string(POST) || method == string(PUT) || method == string(PATCH)
 }
 
-func (req *LuaRequest) parseJSONBody(L *lua.LState, luaReq *lua.LTable) {
-	bodyData := map[string]any{}
-
+func (req *LuaRequest) parseJSONBody(luaReq *LuaTable) {
+	bodyData := map[string]interface{}{}
 	data, err := io.ReadAll(req.HttpRequest.Body)
 	if err != nil {
 		fmt.Println("Error reading body:", err)
 	}
 	req.HttpRequest.Body = io.NopCloser(bytes.NewBuffer(data))
-
 	if len(data) > 0 {
 		err = json.Unmarshal(data, &bodyData)
 		if err != nil {
 			fmt.Println("Warning: failed to decode JSON body:", err)
 		}
 	}
-
-	L.SetField(luaReq, "body", mapToLuaTable(L, bodyData))
+	luaReq.SetField("body", mapToLuaTable(req.LuaVm, bodyData))
 }
 
-func (req *LuaRequest) parseFormBody(L *lua.LState, luaReq *lua.LTable) {
+func (req *LuaRequest) parseFormBody(luaReq *LuaTable) {
 	err := req.HttpRequest.ParseForm()
 	if err != nil {
 		return
 	}
-
-	formTable := L.NewTable()
+	formTable := req.LuaVm.NewTable()
 	for key, values := range req.HttpRequest.PostForm {
-		req.setFormField(L, formTable, key, values)
+		req.setFormField(&formTable, key, values)
 	}
-	L.SetField(luaReq, "body", formTable)
+	luaReq.SetField("body", formTable)
 }
 
-func (req *LuaRequest) setFormField(L *lua.LState, formTable *lua.LTable, key string, values []string) {
+func (req *LuaRequest) setFormField(formTable *LuaTable, key string, values []string) {
 	if len(values) == 1 {
-		L.SetField(formTable, key, lua.LString(values[0]))
+		formTable.SetField(key, LuaString(values[0]))
 	} else {
-		arr := L.NewTable()
+		arr := req.LuaVm.NewTable()
 		for _, v := range values {
-			arr.Append(lua.LString(v))
+			arr.Append(LuaString(v))
 		}
-		L.SetField(formTable, key, arr)
+		formTable.SetField(key, arr)
 	}
 }
 
-func (req *LuaRequest) setQueryParameters(L *lua.LState, luaReq *lua.LTable) {
-	queryTbl := L.NewTable()
-
+func (req *LuaRequest) setQueryParameters(luaReq *LuaTable) {
+	queryTbl := req.LuaVm.NewTable()
 	for key, values := range req.HttpRequest.URL.Query() {
-		valTbl := L.NewTable()
+		valTbl := req.LuaVm.NewTable()
 		for _, v := range values {
-			valTbl.Append(lua.LString(v))
+			valTbl.Append(LuaString(v))
 		}
-		L.SetField(queryTbl, key, valTbl)
+		queryTbl.SetField(key, valTbl)
 	}
-
-	L.SetField(luaReq, "query", queryTbl)
+	luaReq.SetField("query", queryTbl)
 }
 
-func (req *LuaRequest) setRequestParameters(L *lua.LState, luaReq *lua.LTable) {
-	paramsTbl := L.NewTable()
-
+func (req *LuaRequest) setRequestParameters(luaReq *LuaTable) {
+	paramsTbl := req.LuaVm.NewTable()
 	for key, value := range req.Params {
-		L.SetField(paramsTbl, key, lua.LString(value))
+		paramsTbl.SetField(key, LuaString(value))
 	}
-
-	L.SetField(luaReq, "params", paramsTbl)
+	luaReq.SetField("params", paramsTbl)
 }
-
-// TODO: support file uploads
