@@ -8,4 +8,9 @@ app.get("/throw", function(req, res)
 	res.html("<h1>This is illegal</h1>")
 end)
 
+app.notFound(function(req, res)
+	res.status(400)
+	res.json({ message = "not found" })
+end)
+
 app.listen(3000)

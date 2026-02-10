@@ -1,11 +1,11 @@
 package router
 
 import (
-	lua "github.com/yuin/gopher-lua"
+	"immodi/lexgo/internal/vm"
 )
 
 type Handler struct {
 	Pattern string
-	Handler *lua.LFunction
+	Handler *vm.LuaFunction
 	Params  map[string]string
 }

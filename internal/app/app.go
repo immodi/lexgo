@@ -6,12 +6,10 @@ import (
 	"immodi/lexgo/internal/vm"
 	"log"
 	"net/http"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
 type App struct {
-	LuaVm  *lua.LState
+	LuaVm  vm.LVm
 	Router *router.Router
 	Port   int32
 }
@@ -19,7 +17,7 @@ type App struct {
 func New(luaFile string) (*App, error) {
 	luaVm := vm.MakeLuaVm()
 	router, routerDriver := router.MakeRouter(luaVm)
-	data, err := vm.RegisterFramework(router.LuaVm.L, routerDriver)
+	data, err := vm.RegisterFramework(router.LuaVm, routerDriver)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +32,7 @@ func New(luaFile string) (*App, error) {
 	}
 
 	return &App{
-		LuaVm:  luaVm.L,
+		LuaVm:  luaVm,
 		Router: router,
 		Port:   data.Port,
 	}, nil

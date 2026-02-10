@@ -1,49 +1,46 @@
 package vm
 
 import (
-	"immodi/lexgo/internal/middlewares"
 	"log"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
 type MiddlewaresDriver interface {
 	ExecuteFinal(
-		fn *lua.LFunction,
+		fn *LuaFunction,
 	)
 	HandleError(msg string)
-	LuaState() *lua.LState
+	LuaVm() LVm
 	GetLuaResponse() Response
 	GetLuaRequest() Request
 }
 
 type MiddlewaresContext struct {
 	MiddlewaresDriver MiddlewaresDriver
-	FinalHandler      *lua.LFunction
+	FinalHandler      *LuaFunction
 	index             int
 }
 
 type Request interface {
-	MakeLuaRequest() *lua.LTable
+	MakeLuaRequest() *LuaTable
 }
 
 type Response interface {
-	MakeLuaResponse() *lua.LTable
+	MakeLuaResponse() *LuaTable
 }
 
-func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*lua.LFunction) {
+func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*LuaFunction) {
 	runNext(ctx, stack)
 }
 
-func RegisterDefaultMiddlewares(L *lua.LState, tbl *lua.LTable) {
-	mwTbl := L.NewTable()
-	L.SetField(tbl, "middlewares", mwTbl)
+func RegisterDefaultMiddlewares(luaVm LVm, tbl *LuaTable) {
+	mwTbl := luaVm.NewTable()
+	tbl.SetField("middlewares", mwTbl)
 
-	L.SetField(mwTbl, "logger", middlewares.DefaultLuaLogger(L))
-	L.SetField(mwTbl, "cors", middlewares.DefaultLuaCORS(L))
+	// L.SetField(mwTbl, "logger", middlewares.DefaultLuaLogger(L))
+	// L.SetField(mwTbl, "cors", middlewares.DefaultLuaCORS(L))
 }
 
-func runNext(ctx *MiddlewaresContext, stack []*lua.LFunction) {
+func runNext(ctx *MiddlewaresContext, stack []*LuaFunction) {
 	if ctx.index >= len(stack) {
 		ctx.MiddlewaresDriver.ExecuteFinal(
 			ctx.FinalHandler,
@@ -54,19 +51,21 @@ func runNext(ctx *MiddlewaresContext, stack []*lua.LFunction) {
 	current := stack[ctx.index]
 	ctx.index++
 
-	L := ctx.MiddlewaresDriver.LuaState()
+	luaVm := ctx.MiddlewaresDriver.LuaVm()
 
-	next := L.NewFunction(func(L *lua.LState) int {
+	next := luaVm.NewFunction(func(l LVm) LuaValue {
 		runNext(ctx, stack)
-		return 0
+		return nil
 	})
 
-	L.Push(current)
-	L.Push(ctx.MiddlewaresDriver.GetLuaRequest().MakeLuaRequest())
-	L.Push(ctx.MiddlewaresDriver.GetLuaResponse().MakeLuaResponse())
-	L.Push(next)
+	err := luaVm.RunFunction(
+		current,
+		ctx.MiddlewaresDriver.GetLuaRequest().MakeLuaRequest(),
+		ctx.MiddlewaresDriver.GetLuaResponse().MakeLuaResponse(),
+		next,
+	)
 
-	if err := L.PCall(3, 0, nil); err != nil {
+	if err != nil {
 		log.Printf("Lua middleware error: %s", err)
 		ctx.MiddlewaresDriver.HandleError(err.Error())
 	}
@@ -74,7 +73,7 @@ func runNext(ctx *MiddlewaresContext, stack []*lua.LFunction) {
 
 func NewMiddlewaresContext(
 	driver MiddlewaresDriver,
-	final *lua.LFunction,
+	final *LuaFunction,
 ) *MiddlewaresContext {
 	return &MiddlewaresContext{
 		MiddlewaresDriver: driver,

@@ -27,9 +27,9 @@ type LuaRequest struct {
 
 func (req *LuaRequest) MakeLuaRequest() *LuaTable {
 	luaReq := req.LuaVm.NewTable()
-	req.setBasicFields(&luaReq)
-	req.setBodyField(&luaReq)
-	return &luaReq
+	req.setBasicFields(luaReq)
+	req.setBodyField(luaReq)
+	return luaReq
 }
 
 func (req *LuaRequest) setBasicFields(luaReq *LuaTable) {
@@ -80,7 +80,7 @@ func (req *LuaRequest) parseFormBody(luaReq *LuaTable) {
 	}
 	formTable := req.LuaVm.NewTable()
 	for key, values := range req.HttpRequest.PostForm {
-		req.setFormField(&formTable, key, values)
+		req.setFormField(formTable, key, values)
 	}
 	luaReq.SetField("body", formTable)
 }

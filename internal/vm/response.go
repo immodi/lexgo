@@ -1,29 +1,53 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	lua "github.com/yuin/gopher-lua"
+	"sync/atomic"
 )
 
 type LuaResponse struct {
+	buf        bytes.Buffer
 	HttpWriter http.ResponseWriter
 	LuaVm      LVm
-	Written    bool
 	statusCode int
+	written    atomic.Bool
 }
 
 func (res *LuaResponse) MakeLuaResponse() *LuaTable {
 	luaRes := res.LuaVm.NewTable()
 
-	// Create LuaFunction wrappers for each handler
-	statusFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.handleStatus)}
-	setHeaderFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.handleSetHeader)}
-	htmlFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleHTML))}
-	jsonFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleJSON))}
-	rawFn := &LuaFunction{LFunction: res.LuaVm.(*LuaVm).L.NewFunction(res.write(res.handleRaw))}
+	statusFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+		res.handleStatus()
+		return nil
+	})
+	setHeaderFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+		res.handleSetHeader()
+		return nil
+	})
+	htmlFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+		if res.ensureNotWritten() != nil {
+			return nil
+		}
+		res.handleHTML()
+		return nil
+	})
+	jsonFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+		if res.ensureNotWritten() != nil {
+			return nil
+		}
+		res.handleJSON()
+		return nil
+	})
+	rawFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+		if res.ensureNotWritten() != nil {
+			return nil
+		}
+		res.handleRaw()
+		return nil
+	})
 
 	luaRes.SetField("status", statusFn)
 	luaRes.SetField("setHeader", setHeaderFn)
@@ -31,72 +55,97 @@ func (res *LuaResponse) MakeLuaResponse() *LuaTable {
 	luaRes.SetField("json", jsonFn)
 	luaRes.SetField("raw", rawFn)
 
-	return &luaRes
+	return luaRes
 }
 
-func (res *LuaResponse) write(fn func(L *lua.LState) int) func(L *lua.LState) int {
-	return func(L *lua.LState) int {
-
-		if res.Written {
-			L.RaiseError("response already sent")
-			return 0
-		}
-
-		res.Written = true
-		return fn(L)
+func (res *LuaResponse) ensureNotWritten() error {
+	if !res.written.CompareAndSwap(false, true) {
+		errMsg := "response already sent - cannot call multiple response methods"
+		res.LuaVm.Error(errMsg)
+		return fmt.Errorf(errMsg)
 	}
+	return nil
 }
 
-func (res *LuaResponse) handleStatus(L *lua.LState) int {
-	code := L.CheckInt(1)
+func (res *LuaResponse) Flush() {
+	res.ensureStatus()
+	res.HttpWriter.WriteHeader(res.statusCode)
+	res.HttpWriter.Write(res.buf.Bytes())
+}
+
+func (res *LuaResponse) Reset() {
+	res.buf.Reset()
+	res.statusCode = 0
+	res.written.Store(false)
+}
+
+func (res *LuaResponse) handleStatus() {
+	code, err := res.LuaVm.CheckNumber(1)
+	if err != nil {
+		code = float64(http.StatusOK)
+	}
 	if code == 0 {
-		code = http.StatusOK
+		code = float64(http.StatusOK)
 	}
-	res.statusCode = code
-	return 0
+	res.statusCode = int(code)
 }
 
-func (res *LuaResponse) handleHTML(L *lua.LState) int {
-	msg := L.CheckString(1)
-	res.ensureStatus()
+func (res *LuaResponse) handleHTML() {
+	msg, err := res.LuaVm.CheckString(1)
+	if err != nil {
+		res.LuaVm.Error(err.Error())
+		return
+	}
 
+	res.ensureStatus()
 	res.HttpWriter.Header().Set("Content-Type", "text/html")
-	res.HttpWriter.WriteHeader(res.statusCode)
-	fmt.Fprint(res.HttpWriter, msg)
-	return 0
+	res.buf.WriteString(msg)
 }
 
-func (res *LuaResponse) handleRaw(L *lua.LState) int {
-	msg := L.CheckString(1)
+func (res *LuaResponse) handleRaw() {
+	msg, err := res.LuaVm.CheckString(1)
+	if err != nil {
+		res.LuaVm.Error(err.Error())
+		return
+	}
+
 	res.ensureStatus()
-
-	res.HttpWriter.WriteHeader(res.statusCode)
-	fmt.Fprint(res.HttpWriter, msg)
-	return 0
+	res.buf.WriteString(msg)
 }
 
-func (res *LuaResponse) handleJSON(L *lua.LState) int {
-	tbl := L.CheckTable(1)
-	goMap := luaTableToMap(tbl)
+func (res *LuaResponse) handleJSON() {
+	tbl, err := res.LuaVm.CheckTable(1)
+	if err != nil {
+		res.LuaVm.Error(err.Error())
+		return
+	}
 
+	goMap := luaTableToMap(tbl)
 	data, err := json.Marshal(goMap)
 	if err != nil {
-		L.RaiseError("json marshal failed: %v", err)
-		return 0
+		res.LuaVm.Error(fmt.Sprintf("json marshal failed: %v", err))
+		return
 	}
 
 	res.ensureStatus()
 	res.HttpWriter.Header().Set("Content-Type", "application/json")
-	res.HttpWriter.WriteHeader(res.statusCode)
-	res.HttpWriter.Write(data)
-	return 0
+	res.buf.Write(data)
 }
 
-func (res *LuaResponse) handleSetHeader(L *lua.LState) int {
-	key := L.CheckString(1)
-	val := L.CheckString(2)
+func (res *LuaResponse) handleSetHeader() {
+	key, err := res.LuaVm.CheckString(1)
+	if err != nil {
+		res.LuaVm.Error(err.Error())
+		return
+	}
+
+	val, err := res.LuaVm.CheckString(2)
+	if err != nil {
+		res.LuaVm.Error(err.Error())
+		return
+	}
+
 	res.HttpWriter.Header().Set(key, val)
-	return 0
 }
 
 func (res *LuaResponse) ensureStatus() {

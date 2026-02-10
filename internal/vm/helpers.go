@@ -14,7 +14,7 @@ func luaTableToMap(tbl *LuaTable) map[string]any {
 		case LuaNumber:
 			k = fmt.Sprintf("%v", float64(key))
 		default:
-			k = key.ToLuaValue().String()
+			k = ToLua(key).String()
 		}
 
 		switch v := value.(type) {
@@ -27,7 +27,7 @@ func luaTableToMap(tbl *LuaTable) map[string]any {
 		case *LuaTable:
 			result[k] = luaTableToMap(v)
 		default:
-			result[k] = v.ToLuaValue().String()
+			result[k] = ToLua(v).String()
 		}
 	})
 	return result
@@ -49,5 +49,5 @@ func mapToLuaTable(LVm LVm, data map[string]any) *LuaTable {
 			tbl.SetField(k, LuaString(fmt.Sprintf("%v", val)))
 		}
 	}
-	return &tbl
+	return tbl
 }

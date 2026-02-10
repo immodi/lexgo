@@ -2,8 +2,6 @@ package router
 
 import (
 	"immodi/lexgo/internal/vm"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
 type MiddlewareVmDriver struct {
@@ -12,8 +10,8 @@ type MiddlewareVmDriver struct {
 	LuaResponse *vm.LuaResponse
 }
 
-func (mwDriver *MiddlewareVmDriver) LuaState() *lua.LState {
-	return mwDriver.Router.LuaVm.L
+func (mwDriver *MiddlewareVmDriver) LuaVm() vm.LVm {
+	return mwDriver.Router.LuaVm
 }
 
 func (mwDriver *MiddlewareVmDriver) GetLuaRequest() vm.Request {
@@ -25,10 +23,10 @@ func (mwDriver *MiddlewareVmDriver) GetLuaResponse() vm.Response {
 }
 
 func (mwDriver *MiddlewareVmDriver) ExecuteFinal(
-	fn *lua.LFunction,
+	fn *vm.LuaFunction,
 ) {
 	vm.ExecuteLuaHandler(
-		mwDriver.Router.LuaVm.L,
+		mwDriver.Router.LuaVm,
 		mwDriver.Router.ServerErrorFunc,
 		fn,
 		mwDriver.LuaRequest,
@@ -38,7 +36,7 @@ func (mwDriver *MiddlewareVmDriver) ExecuteFinal(
 
 func (mwDriver *MiddlewareVmDriver) HandleError(msg string) {
 	vm.HandleServerError(
-		mwDriver.Router.LuaVm.L,
+		mwDriver.Router.LuaVm,
 		mwDriver.Router.ServerErrorFunc,
 		msg,
 		mwDriver.LuaResponse,

@@ -1,33 +1,34 @@
 package vm
 
-import (
-	lua "github.com/yuin/gopher-lua"
-)
-
 type AppData struct {
 	Port int32
 }
 
-func RegisterFramework(L *lua.LState, routerDriver RouterDriver) (*AppData, error) {
-	tbl := L.NewTable()
+func RegisterFramework(luaVm LVm, routerDriver RouterDriver) (*AppData, error) {
+	tbl := luaVm.NewTable()
 	data := &AppData{}
 
-	L.SetGlobal("lexgo", tbl)
-	L.SetField(tbl, "new", L.NewFunction(func(l *lua.LState) int {
+	luaVm.SetGlobal("lexgo", tbl)
+	newFn := luaVm.NewFunction(func(l LVm) LuaValue {
+		app := ResgisterRouter(l, routerDriver)
 
-		app := ResgisterRouter(L, routerDriver)
-
-		L.SetField(app, "listen", L.NewFunction(func(L *lua.LState) int {
-			port := L.CheckInt(1)
-			L.SetField(app, "_port", lua.LNumber(port))
+		listenFn := l.NewFunction(func(l LVm) LuaValue {
+			port, err := l.CheckNumber(1)
+			if err != nil {
+				l.Error(err.Error())
+				return nil
+			}
+			// L.SetField(app, "_port", lua.LNumber(port))
+			app.SetField("_port", LuaNumber(port))
 			data.Port = int32(port)
-			return 0
-		}))
+			return nil
+		})
+		app.SetField("listen", listenFn)
+		return app
+	})
 
-		l.Push(app)
-		return 1
-	}))
+	tbl.SetField("new", newFn)
+	RegisterDefaultMiddlewares(luaVm, tbl)
 
-	RegisterDefaultMiddlewares(L, tbl)
 	return data, nil
 }

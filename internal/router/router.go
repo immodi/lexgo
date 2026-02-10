@@ -5,23 +5,21 @@ import (
 	"strings"
 
 	"immodi/lexgo/internal/vm"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
 type Router struct {
-	LuaVm           *vm.LuaVm
+	LuaVm           vm.LVm
 	Routes          map[vm.HTTPRoute]*Handler
-	MiddleWares     []*lua.LFunction
-	NotFoundFunc    *lua.LFunction
-	ServerErrorFunc *lua.LFunction
+	MiddleWares     []*vm.LuaFunction
+	NotFoundFunc    *vm.LuaFunction
+	ServerErrorFunc *vm.LuaFunction
 }
 
-func MakeRouter(luaVm *vm.LuaVm) (*Router, *RouterVmDriver) {
+func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
 	router := &Router{
 		Routes:      make(map[vm.HTTPRoute]*Handler),
 		LuaVm:       luaVm,
-		MiddleWares: make([]*lua.LFunction, 0),
+		MiddleWares: make([]*vm.LuaFunction, 0),
 	}
 
 	routerDriver := &RouterVmDriver{Router: router}
@@ -41,7 +39,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	luaReq := &vm.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
-	luaRes := &vm.LuaResponse{HttpWriter: w, LuaVm: router.LuaVm, Written: false}
+	luaRes := &vm.LuaResponse{HttpWriter: w, LuaVm: router.LuaVm}
 
 	if len(router.MiddleWares) > 0 {
 		ctx := vm.NewMiddlewaresContext(
@@ -51,7 +49,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		vm.ExecuteMiddlewares(ctx, router.MiddleWares)
 	} else {
-		vm.ExecuteLuaHandler(router.LuaVm.L, router.ServerErrorFunc, handler.Handler, luaReq, luaRes)
+		vm.ExecuteLuaHandler(router.LuaVm, router.ServerErrorFunc, handler.Handler, luaReq, luaRes)
 	}
 }
 
