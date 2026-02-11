@@ -1,38 +1,39 @@
-package vm
+package framework
 
 import (
+	"immodi/lexgo/internal/vm"
 	"log"
 )
 
 type MiddlewaresDriver interface {
 	ExecuteFinal(
-		fn *LuaFunction,
+		fn *vm.LuaFunction,
 	)
 	HandleError(msg string)
-	LuaVm() LVm
+	LuaVm() vm.LVm
 	GetLuaResponse() Response
 	GetLuaRequest() Request
 }
 
 type MiddlewaresContext struct {
 	MiddlewaresDriver MiddlewaresDriver
-	FinalHandler      *LuaFunction
+	FinalHandler      *vm.LuaFunction
 	index             int
 }
 
 type Request interface {
-	MakeLuaRequest() *LuaTable
+	MakeLuaRequest() *vm.LuaTable
 }
 
 type Response interface {
-	MakeLuaResponse() *LuaTable
+	MakeLuaResponse() *vm.LuaTable
 }
 
-func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*LuaFunction) {
+func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	runNext(ctx, stack)
 }
 
-func RegisterDefaultMiddlewares(luaVm LVm, tbl *LuaTable) {
+func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable) {
 	mwTbl := luaVm.NewTable()
 	tbl.SetField("middlewares", mwTbl)
 
@@ -40,7 +41,7 @@ func RegisterDefaultMiddlewares(luaVm LVm, tbl *LuaTable) {
 	// L.SetField(mwTbl, "cors", middlewares.DefaultLuaCORS(L))
 }
 
-func runNext(ctx *MiddlewaresContext, stack []*LuaFunction) {
+func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	if ctx.index >= len(stack) {
 		ctx.MiddlewaresDriver.ExecuteFinal(
 			ctx.FinalHandler,
@@ -53,7 +54,7 @@ func runNext(ctx *MiddlewaresContext, stack []*LuaFunction) {
 
 	luaVm := ctx.MiddlewaresDriver.LuaVm()
 
-	next := luaVm.NewFunction(func(l LVm) LuaValue {
+	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		runNext(ctx, stack)
 		return nil
 	})
@@ -73,7 +74,7 @@ func runNext(ctx *MiddlewaresContext, stack []*LuaFunction) {
 
 func NewMiddlewaresContext(
 	driver MiddlewaresDriver,
-	final *LuaFunction,
+	final *vm.LuaFunction,
 ) *MiddlewaresContext {
 	return &MiddlewaresContext{
 		MiddlewaresDriver: driver,

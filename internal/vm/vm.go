@@ -129,17 +129,15 @@ func (luaVm *LuaVm) Return(values ...LuaValue) int {
 }
 
 func (luaVm *LuaVm) RunFunction(fn *LuaFunction, args ...LuaValue) error {
-	return luaVm.withLock(func(L *lua.LState) error {
-		top := L.GetTop()
-		defer L.SetTop(top)
+	top := luaVm.L.GetTop()
+	defer luaVm.L.SetTop(top)
 
-		luaVm.push(fn)
-		for _, arg := range args {
-			luaVm.push(arg)
-		}
+	luaVm.push(fn)
+	for _, arg := range args {
+		luaVm.push(arg)
+	}
 
-		return luaVm.pcall(len(args), 0)
-	})
+	return luaVm.pcall(len(args), 0)
 }
 
 func (luaVm *LuaVm) Error(mes string) {

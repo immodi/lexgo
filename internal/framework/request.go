@@ -1,9 +1,10 @@
-package vm
+package framework
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"immodi/lexgo/internal/vm"
 	"io"
 	"net/http"
 )
@@ -21,25 +22,25 @@ const (
 
 type LuaRequest struct {
 	HttpRequest *http.Request
-	LuaVm       LVm
+	LuaVm       vm.LVm
 	Params      map[string]string
 }
 
-func (req *LuaRequest) MakeLuaRequest() *LuaTable {
+func (req *LuaRequest) MakeLuaRequest() *vm.LuaTable {
 	luaReq := req.LuaVm.NewTable()
 	req.setBasicFields(luaReq)
 	req.setBodyField(luaReq)
 	return luaReq
 }
 
-func (req *LuaRequest) setBasicFields(luaReq *LuaTable) {
-	luaReq.SetField("method", LuaString(req.HttpRequest.Method))
-	luaReq.SetField("url", LuaString(req.HttpRequest.URL.Path))
+func (req *LuaRequest) setBasicFields(luaReq *vm.LuaTable) {
+	luaReq.SetField("method", vm.LuaString(req.HttpRequest.Method))
+	luaReq.SetField("url", vm.LuaString(req.HttpRequest.URL.Path))
 	req.setQueryParameters(luaReq)
 	req.setRequestParameters(luaReq)
 }
 
-func (req *LuaRequest) setBodyField(luaReq *LuaTable) {
+func (req *LuaRequest) setBodyField(luaReq *vm.LuaTable) {
 	if !req.shouldParseBody() {
 		return
 	}
@@ -57,7 +58,7 @@ func (req *LuaRequest) shouldParseBody() bool {
 	return method == string(POST) || method == string(PUT) || method == string(PATCH)
 }
 
-func (req *LuaRequest) parseJSONBody(luaReq *LuaTable) {
+func (req *LuaRequest) parseJSONBody(luaReq *vm.LuaTable) {
 	bodyData := map[string]interface{}{}
 	data, err := io.ReadAll(req.HttpRequest.Body)
 	if err != nil {
@@ -73,7 +74,7 @@ func (req *LuaRequest) parseJSONBody(luaReq *LuaTable) {
 	luaReq.SetField("body", mapToLuaTable(req.LuaVm, bodyData))
 }
 
-func (req *LuaRequest) parseFormBody(luaReq *LuaTable) {
+func (req *LuaRequest) parseFormBody(luaReq *vm.LuaTable) {
 	err := req.HttpRequest.ParseForm()
 	if err != nil {
 		return
@@ -85,34 +86,34 @@ func (req *LuaRequest) parseFormBody(luaReq *LuaTable) {
 	luaReq.SetField("body", formTable)
 }
 
-func (req *LuaRequest) setFormField(formTable *LuaTable, key string, values []string) {
+func (req *LuaRequest) setFormField(formTable *vm.LuaTable, key string, values []string) {
 	if len(values) == 1 {
-		formTable.SetField(key, LuaString(values[0]))
+		formTable.SetField(key, vm.LuaString(values[0]))
 	} else {
 		arr := req.LuaVm.NewTable()
 		for _, v := range values {
-			arr.Append(LuaString(v))
+			arr.Append(vm.LuaString(v))
 		}
 		formTable.SetField(key, arr)
 	}
 }
 
-func (req *LuaRequest) setQueryParameters(luaReq *LuaTable) {
+func (req *LuaRequest) setQueryParameters(luaReq *vm.LuaTable) {
 	queryTbl := req.LuaVm.NewTable()
 	for key, values := range req.HttpRequest.URL.Query() {
 		valTbl := req.LuaVm.NewTable()
 		for _, v := range values {
-			valTbl.Append(LuaString(v))
+			valTbl.Append(vm.LuaString(v))
 		}
 		queryTbl.SetField(key, valTbl)
 	}
 	luaReq.SetField("query", queryTbl)
 }
 
-func (req *LuaRequest) setRequestParameters(luaReq *LuaTable) {
+func (req *LuaRequest) setRequestParameters(luaReq *vm.LuaTable) {
 	paramsTbl := req.LuaVm.NewTable()
 	for key, value := range req.Params {
-		paramsTbl.SetField(key, LuaString(value))
+		paramsTbl.SetField(key, vm.LuaString(value))
 	}
 	luaReq.SetField("params", paramsTbl)
 }

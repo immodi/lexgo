@@ -1,47 +1,57 @@
-package vm
+package framework
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"immodi/lexgo/internal/vm"
 	"net/http"
-	"sync/atomic"
 )
 
 type LuaResponse struct {
-	buf        bytes.Buffer
 	HttpWriter http.ResponseWriter
-	LuaVm      LVm
+	LuaVm      vm.LVm
+	buf        bytes.Buffer
+	headerBuf  http.Header
 	statusCode int
-	written    atomic.Bool
 }
 
-func (res *LuaResponse) MakeLuaResponse() *LuaTable {
+func ConstructResponse(w http.ResponseWriter, vm vm.LVm) *LuaResponse {
+	return &LuaResponse{
+		HttpWriter: w,
+		LuaVm:      vm,
+		statusCode: 0,
+		buf:        *bytes.NewBuffer([]byte{}),
+		headerBuf:  make(http.Header),
+	}
+}
+
+func (res *LuaResponse) MakeLuaResponse() *vm.LuaTable {
 	luaRes := res.LuaVm.NewTable()
 
-	statusFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+	statusFn := res.LuaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		res.handleStatus()
 		return nil
 	})
-	setHeaderFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+	setHeaderFn := res.LuaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		res.handleSetHeader()
 		return nil
 	})
-	htmlFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+	htmlFn := res.LuaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		if res.ensureNotWritten() != nil {
 			return nil
 		}
 		res.handleHTML()
 		return nil
 	})
-	jsonFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+	jsonFn := res.LuaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		if res.ensureNotWritten() != nil {
 			return nil
 		}
 		res.handleJSON()
 		return nil
 	})
-	rawFn := res.LuaVm.NewFunction(func(l LVm) LuaValue {
+	rawFn := res.LuaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		if res.ensureNotWritten() != nil {
 			return nil
 		}
@@ -59,7 +69,8 @@ func (res *LuaResponse) MakeLuaResponse() *LuaTable {
 }
 
 func (res *LuaResponse) ensureNotWritten() error {
-	if !res.written.CompareAndSwap(false, true) {
+	contentHeader := res.headerBuf.Get("Content-Type")
+	if res.buf.Len() > 0 || contentHeader != "" {
 		errMsg := "response already sent - cannot call multiple response methods"
 		res.LuaVm.Error(errMsg)
 		return fmt.Errorf(errMsg)
@@ -69,14 +80,21 @@ func (res *LuaResponse) ensureNotWritten() error {
 
 func (res *LuaResponse) Flush() {
 	res.ensureStatus()
+
+	for k, vals := range res.headerBuf {
+		for _, v := range vals {
+			res.HttpWriter.Header().Add(k, v)
+		}
+	}
+
 	res.HttpWriter.WriteHeader(res.statusCode)
 	res.HttpWriter.Write(res.buf.Bytes())
 }
 
 func (res *LuaResponse) Reset() {
 	res.buf.Reset()
+	res.headerBuf = make(http.Header)
 	res.statusCode = 0
-	res.written.Store(false)
 }
 
 func (res *LuaResponse) handleStatus() {
@@ -98,7 +116,7 @@ func (res *LuaResponse) handleHTML() {
 	}
 
 	res.ensureStatus()
-	res.HttpWriter.Header().Set("Content-Type", "text/html")
+	res.headerBuf.Set("Content-Type", "text/html")
 	res.buf.WriteString(msg)
 }
 
@@ -128,7 +146,7 @@ func (res *LuaResponse) handleJSON() {
 	}
 
 	res.ensureStatus()
-	res.HttpWriter.Header().Set("Content-Type", "application/json")
+	res.headerBuf.Set("Content-Type", "application/json")
 	res.buf.Write(data)
 }
 
@@ -145,7 +163,7 @@ func (res *LuaResponse) handleSetHeader() {
 		return
 	}
 
-	res.HttpWriter.Header().Set(key, val)
+	res.headerBuf.Set(key, val)
 }
 
 func (res *LuaResponse) ensureStatus() {

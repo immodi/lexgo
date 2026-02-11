@@ -1,6 +1,7 @@
-package vm
+package framework
 
 import (
+	"immodi/lexgo/internal/vm"
 	"net/http"
 )
 
@@ -10,17 +11,17 @@ type HTTPRoute struct {
 }
 
 type RouterDriver interface {
-	RegisterLuaMethodHandler(fn *LuaFunction, path string, method string)
-	ResgisterLuaErrorHandler(fn *LuaFunction)
-	ResgisterLuaNotFoundHandler(fn *LuaFunction)
-	RegisterLuaMiddleware(fn *LuaFunction)
+	RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string)
+	ResgisterLuaErrorHandler(fn *vm.LuaFunction)
+	ResgisterLuaNotFoundHandler(fn *vm.LuaFunction)
+	RegisterLuaMiddleware(fn *vm.LuaFunction)
 }
 
-func ResgisterRouter(luaVm LVm, routerDriver RouterDriver) *LuaTable {
+func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 	appTbl := luaVm.NewTable()
 
-	registerMethod := func(method string) *LuaFunction {
-		return luaVm.NewFunction(func(l LVm) LuaValue {
+	registerMethod := func(method string) *vm.LuaFunction {
+		return luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 			path, err := l.CheckString(1)
 			if err != nil {
 				l.Error(err.Error())
@@ -45,7 +46,7 @@ func ResgisterRouter(luaVm LVm, routerDriver RouterDriver) *LuaTable {
 	appTbl.SetField("patch", registerMethod("PATCH"))
 	appTbl.SetField("options", registerMethod("OPTIONS"))
 
-	appTbl.SetField("notFound", luaVm.NewFunction(func(l LVm) LuaValue {
+	appTbl.SetField("notFound", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
 			l.Error(err.Error())
@@ -56,7 +57,7 @@ func ResgisterRouter(luaVm LVm, routerDriver RouterDriver) *LuaTable {
 		return nil
 	}))
 
-	appTbl.SetField("error", luaVm.NewFunction(func(l LVm) LuaValue {
+	appTbl.SetField("error", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
 			l.Error(err.Error())
@@ -67,7 +68,7 @@ func ResgisterRouter(luaVm LVm, routerDriver RouterDriver) *LuaTable {
 		return nil
 	}))
 
-	appTbl.SetField("use", luaVm.NewFunction(func(l LVm) LuaValue {
+	appTbl.SetField("use", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
 			l.Error(err.Error())
@@ -81,7 +82,7 @@ func ResgisterRouter(luaVm LVm, routerDriver RouterDriver) *LuaTable {
 	return appTbl
 }
 
-func ExecuteLuaHandler(luaVm LVm, errFn *LuaFunction, fn *LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
+func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
 		http.Error(luaRes.HttpWriter, "404 Not Found", http.StatusNotFound)
 		return
@@ -95,7 +96,7 @@ func ExecuteLuaHandler(luaVm LVm, errFn *LuaFunction, fn *LuaFunction, luaReq *L
 	}
 }
 
-func HandleServerError(luaVm LVm, errFn *LuaFunction, errMsg string, luaRes *LuaResponse) {
+func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRes *LuaResponse) {
 	luaRes.Reset()
 
 	if errFn == nil {
@@ -103,7 +104,7 @@ func HandleServerError(luaVm LVm, errFn *LuaFunction, errMsg string, luaRes *Lua
 		return
 	}
 
-	err := luaVm.RunFunction(errFn, LuaString(errMsg), luaRes.MakeLuaResponse())
+	err := luaVm.RunFunction(errFn, vm.LuaString(errMsg), luaRes.MakeLuaResponse())
 	if err != nil {
 		luaRes.Reset()
 		http.Error(luaRes.HttpWriter, err.Error(), http.StatusInternalServerError)

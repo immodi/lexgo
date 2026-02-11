@@ -1,6 +1,7 @@
 package router
 
 import (
+	"immodi/lexgo/internal/framework"
 	"immodi/lexgo/internal/vm"
 )
 
@@ -9,7 +10,7 @@ type RouterVmDriver struct {
 }
 
 func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string) {
-	router.Router.Routes[vm.HTTPRoute{Path: path, Method: vm.HTTPMethod(method)}] = &Handler{
+	router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] = &Handler{
 		Pattern: path,
 		Handler: fn,
 		Params:  map[string]string{},
