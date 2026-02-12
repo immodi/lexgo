@@ -141,11 +141,9 @@ func (luaVm *LuaVm) RunFunction(fn *LuaFunction, args ...LuaValue) error {
 }
 
 func (luaVm *LuaVm) Error(mes string) {
-	// No lock - called from within Lua execution
 	luaVm.L.RaiseError(mes)
 }
 
-// Check functions - NO LOCKS (called from within Lua execution context)
 func (luaVm *LuaVm) CheckString(index int) (string, error) {
 	lv := luaVm.L.Get(index)
 	if lv.Type() != lua.LTString {

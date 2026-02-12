@@ -1,6 +1,7 @@
 package framework
 
 import (
+	defaultmiddlewares "immodi/lexgo/internal/framework/def_libs/middlewares"
 	"immodi/lexgo/internal/vm"
 	"log"
 )
@@ -33,12 +34,12 @@ func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	runNext(ctx, stack)
 }
 
-func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable) {
+func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, getRoutes func() map[string][]string) {
 	mwTbl := luaVm.NewTable()
 	tbl.SetField("middlewares", mwTbl)
 
-	// L.SetField(mwTbl, "logger", middlewares.DefaultLuaLogger(L))
-	// L.SetField(mwTbl, "cors", middlewares.DefaultLuaCORS(L))
+	mwTbl.SetField("logger", defaultmiddlewares.DefaultLuaLogger(luaVm))
+	mwTbl.SetField("cors", defaultmiddlewares.DefaultLuaCORS(luaVm, getRoutes))
 }
 
 func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
@@ -53,7 +54,6 @@ func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	ctx.index++
 
 	luaVm := ctx.MiddlewaresDriver.LuaVm()
-
 	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		runNext(ctx, stack)
 		return nil

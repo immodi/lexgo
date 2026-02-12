@@ -28,3 +28,11 @@ func (router *RouterVmDriver) ResgisterLuaNotFoundHandler(fn *vm.LuaFunction) {
 func (router *RouterVmDriver) RegisterLuaMiddleware(fn *vm.LuaFunction) {
 	router.Router.MiddleWares = append(router.Router.MiddleWares, fn)
 }
+
+func (router *RouterVmDriver) GetAllRegistredRoutes() map[string][]string {
+	var routes map[string][]string = map[string][]string{}
+	for route := range router.Router.Routes {
+		routes[route.Path] = append(routes[route.Path], string(route.Method))
+	}
+	return routes
+}

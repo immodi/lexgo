@@ -20,7 +20,6 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 				l.Error(err.Error())
 				return nil
 			}
-			// L.SetField(app, "_port", lua.LNumber(port))
 			app.SetField("_port", vm.LuaNumber(port))
 			data.Port = int32(port)
 			return nil
@@ -30,7 +29,7 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 	})
 
 	tbl.SetField("new", newFn)
-	RegisterDefaultMiddlewares(luaVm, tbl)
+	RegisterDefaultMiddlewares(luaVm, tbl, routerDriver.GetAllRegistredRoutes)
 
 	return data, nil
 }

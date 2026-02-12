@@ -48,16 +48,12 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	luaReq := &framework.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
 	luaRes := framework.ConstructResponse(w, router.LuaVm)
 
-	if len(router.MiddleWares) > 0 {
-		ctx := framework.NewMiddlewaresContext(
-			&MiddlewareVmDriver{router, luaReq, luaRes},
-			handler.Handler,
-		)
+	ctx := framework.NewMiddlewaresContext(
+		&MiddlewareVmDriver{router, luaReq, luaRes},
+		handler.Handler,
+	)
 
-		framework.ExecuteMiddlewares(ctx, router.MiddleWares)
-	} else {
-		framework.ExecuteLuaHandler(router.LuaVm, router.ServerErrorFunc, handler.Handler, luaReq, luaRes)
-	}
+	framework.ExecuteMiddlewares(ctx, router.MiddleWares)
 }
 
 func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {

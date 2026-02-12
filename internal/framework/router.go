@@ -15,6 +15,8 @@ type RouterDriver interface {
 	ResgisterLuaErrorHandler(fn *vm.LuaFunction)
 	ResgisterLuaNotFoundHandler(fn *vm.LuaFunction)
 	RegisterLuaMiddleware(fn *vm.LuaFunction)
+
+	GetAllRegistredRoutes() map[string][]string
 }
 
 func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
@@ -84,16 +86,19 @@ func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 
 func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
-		http.Error(luaRes.HttpWriter, "404 Not Found", http.StatusNotFound)
+		luaRes.Flush()
 		return
 	}
 
-	err := luaVm.RunFunction(fn, luaReq.MakeLuaRequest(), luaRes.MakeLuaResponse())
-	if err != nil {
+	if err := luaVm.RunFunction(
+		fn,
+		luaReq.MakeLuaRequest(),
+		luaRes.MakeLuaResponse(),
+	); err != nil {
 		HandleServerError(luaVm, errFn, err.Error(), luaRes)
-	} else {
-		luaRes.Flush()
 	}
+
+	luaRes.Flush()
 }
 
 func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRes *LuaResponse) {
