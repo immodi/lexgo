@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"immodi/lexgo/internal/app"
+	runtime_cli "immodi/lexgo/cmd/runtime"
 	"log"
 	"os"
 )
@@ -10,18 +9,15 @@ import (
 func main() {
 	args := os.Args[1:]
 	if len(args) <= 0 {
-		log.Fatal("didn't supply main lua file")
+		log.Fatal("didn't supply command")
 	}
 
-	mainFile := args[0]
-	app, err := app.New(mainFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer app.Close()
-
-	err = app.Listen(fmt.Sprintf(":%d", app.Port))
-	if err != nil {
-		log.Fatal(err)
+	switch args[0] {
+	case "run":
+		if err := runtime_cli.Runtime(args[1:]); err != nil {
+			log.Fatalf(err.Error())
+		}
+	default:
+		log.Fatalf("supplied command is unknown")
 	}
 }

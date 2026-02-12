@@ -1,25 +1,24 @@
-package app
+package runtime
 
 import (
 	"fmt"
+	"immodi/lexgo/internal/framework"
 	"immodi/lexgo/internal/router"
 	"immodi/lexgo/internal/vm"
 	"log"
 	"net/http"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
-type App struct {
-	LuaVm  *lua.LState
+type Runtime struct {
+	LuaVm  vm.LVm
 	Router *router.Router
 	Port   int32
 }
 
-func New(luaFile string) (*App, error) {
+func New(luaFile string) (*Runtime, error) {
 	luaVm := vm.MakeLuaVm()
 	router, routerDriver := router.MakeRouter(luaVm)
-	data, err := vm.RegisterFramework(router.LuaVm.L, routerDriver)
+	app, err := framework.RegisterFramework(router.LuaVm, routerDriver)
 	if err != nil {
 		return nil, err
 	}
@@ -29,20 +28,20 @@ func New(luaFile string) (*App, error) {
 		return nil, err
 	}
 
-	if data.Port == 0 {
+	if app.Port == 0 {
 		return nil, fmt.Errorf("invalid application port, please use 'app.listen()'")
 	}
 
-	return &App{
-		LuaVm:  luaVm.L,
+	return &Runtime{
+		LuaVm:  luaVm,
 		Router: router,
-		Port:   data.Port,
+		Port:   app.Port,
 	}, nil
 }
 
-func (a *App) Listen(addr string) error {
+func (r *Runtime) Listen(addr string) error {
 	log.Printf("HTTP server starting at http://%s...\n", addr)
-	err := http.ListenAndServe(addr, a.Router)
+	err := http.ListenAndServe(addr, r.Router)
 	if err != nil {
 		log.Println("failed to start server:", err)
 		return err
@@ -51,8 +50,8 @@ func (a *App) Listen(addr string) error {
 	return nil
 }
 
-func (a *App) Close() {
-	if a.LuaVm != nil {
-		a.LuaVm.Close()
+func (r *Runtime) Close() {
+	if r.LuaVm != nil {
+		r.LuaVm.Close()
 	}
 }
