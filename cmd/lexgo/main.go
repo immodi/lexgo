@@ -1,20 +1,23 @@
 package main
 
 import (
-	"immodi/lexgo/internal/app"
+	runtime_cli "immodi/lexgo/cmd/runtime"
 	"log"
+	"os"
 )
 
 func main() {
-	app, err := app.New("examples/hello/hello.lua")
-	if err != nil {
-		log.Fatal(err)
+	args := os.Args[1:]
+	if len(args) <= 0 {
+		log.Fatal("didn't supply command")
 	}
 
-	defer app.Close()
-
-	err = app.Listen(":8080")
-	if err != nil {
-		log.Fatal(err)
+	switch args[0] {
+	case "run":
+		if err := runtime_cli.Runtime(args[1:]); err != nil {
+			log.Fatalf(err.Error())
+		}
+	default:
+		log.Fatalf("supplied command is unknown")
 	}
 }

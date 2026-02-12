@@ -4,24 +4,29 @@ import (
 	"net/http"
 	"strings"
 
+	"immodi/lexgo/internal/framework"
 	"immodi/lexgo/internal/vm"
-
-	lua "github.com/yuin/gopher-lua"
 )
 
-type Router struct {
-	LuaVm           *vm.LuaVm
-	Routes          map[vm.HTTPRoute]*Handler
-	MiddleWares     []*lua.LFunction
-	NotFoundFunc    *lua.LFunction
-	ServerErrorFunc *lua.LFunction
+type Handler struct {
+	Pattern string
+	Handler *vm.LuaFunction
+	Params  map[string]string
 }
 
-func MakeRouter(luaVm *vm.LuaVm) (*Router, *RouterVmDriver) {
+type Router struct {
+	LuaVm           vm.LVm
+	Routes          map[framework.HTTPRoute]*Handler
+	MiddleWares     []*vm.LuaFunction
+	NotFoundFunc    *vm.LuaFunction
+	ServerErrorFunc *vm.LuaFunction
+}
+
+func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
 	router := &Router{
-		Routes:      make(map[vm.HTTPRoute]*Handler),
+		Routes:      make(map[framework.HTTPRoute]*Handler),
 		LuaVm:       luaVm,
-		MiddleWares: make([]*lua.LFunction, 0),
+		MiddleWares: make([]*vm.LuaFunction, 0),
 	}
 
 	routerDriver := &RouterVmDriver{Router: router}
@@ -29,7 +34,7 @@ func MakeRouter(luaVm *vm.LuaVm) (*Router, *RouterVmDriver) {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	route := vm.HTTPRoute{Path: req.URL.Path, Method: vm.HTTPMethod(req.Method)}
+	route := framework.HTTPRoute{Path: req.URL.Path, Method: framework.HTTPMethod(req.Method)}
 	handler := router.matchRoute(route)
 
 	if handler == nil {
@@ -40,22 +45,22 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	luaReq := &vm.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
-	luaRes := &vm.LuaResponse{HttpWriter: w, LuaVm: router.LuaVm, Written: false}
+	luaReq := &framework.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
+	luaRes := framework.ConstructResponse(w, router.LuaVm)
 
 	if len(router.MiddleWares) > 0 {
-		ctx := vm.NewMiddlewaresContext(
+		ctx := framework.NewMiddlewaresContext(
 			&MiddlewareVmDriver{router, luaReq, luaRes},
 			handler.Handler,
 		)
 
-		vm.ExecuteMiddlewares(ctx, router.MiddleWares)
+		framework.ExecuteMiddlewares(ctx, router.MiddleWares)
 	} else {
-		vm.ExecuteLuaHandler(router.LuaVm.L, router.ServerErrorFunc, handler.Handler, luaReq, luaRes)
+		framework.ExecuteLuaHandler(router.LuaVm, router.ServerErrorFunc, handler.Handler, luaReq, luaRes)
 	}
 }
 
-func (router *Router) matchRoute(incoming vm.HTTPRoute) *Handler {
+func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 	incomingParts := strings.Split(strings.Trim(incoming.Path, "/"), "/")
 	for route, handler := range router.Routes {
 		if route.Method != incoming.Method {
@@ -93,7 +98,6 @@ func (router *Router) matchRoute(incoming vm.HTTPRoute) *Handler {
 				Params:  params,
 			}
 		}
-
 	}
 
 	return nil
