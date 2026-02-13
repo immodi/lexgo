@@ -36,6 +36,8 @@ func (req *LuaRequest) MakeLuaRequest() *vm.LuaTable {
 func (req *LuaRequest) setBasicFields(luaReq *vm.LuaTable) {
 	luaReq.SetField("method", vm.LuaString(req.HttpRequest.Method))
 	luaReq.SetField("url", vm.LuaString(req.HttpRequest.URL.Path))
+	luaReq.SetField("origin", vm.LuaString(req.HttpRequest.Header.Get("Origin")))
+
 	req.setQueryParameters(luaReq)
 	req.setRequestParameters(luaReq)
 }

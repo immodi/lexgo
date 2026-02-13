@@ -1,4 +1,4 @@
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.get("/search", function(req, res)
 	local q = req.query.q and req.query.q[1] or "nothing"

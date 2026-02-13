@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	lua "github.com/yuin/gopher-lua"
@@ -18,6 +19,7 @@ type LVm interface {
 	Return(values ...LuaValue) int
 	NewMultiReturnFunction(fn func(LVm) int) *LuaFunction
 	Error(mes string)
+	Warn(mes string)
 	Close()
 
 	// Check functions - validate and retrieve typed values from stack
@@ -142,6 +144,10 @@ func (luaVm *LuaVm) RunFunction(fn *LuaFunction, args ...LuaValue) error {
 
 func (luaVm *LuaVm) Error(mes string) {
 	luaVm.L.RaiseError(mes)
+}
+
+func (luaVm *LuaVm) Warn(mes string) {
+	log.Printf("WARNING: %s\n", mes)
 }
 
 func (luaVm *LuaVm) CheckString(index int) (string, error) {

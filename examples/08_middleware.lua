@@ -1,4 +1,7 @@
-local app = lexgo.new()
+local app = lexgo.new({
+	env = "production",
+	allowedOrigins = { "t1", "t2" },
+})
 
 app.use(lexgo.middlewares.cors)
 app.use(lexgo.middlewares.logger)

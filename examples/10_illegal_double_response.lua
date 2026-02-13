@@ -1,4 +1,4 @@
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.use(function(req, res, next)
 	print("Request received for:", req.url)

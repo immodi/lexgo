@@ -17,11 +17,11 @@ func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path 
 	}
 }
 
-func (router *RouterVmDriver) ResgisterLuaErrorHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaErrorHandler(fn *vm.LuaFunction) {
 	router.Router.ServerErrorFunc = fn
 }
 
-func (router *RouterVmDriver) ResgisterLuaNotFoundHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaNotFoundHandler(fn *vm.LuaFunction) {
 	router.Router.NotFoundFunc = fn
 }
 

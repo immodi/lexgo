@@ -1,6 +1,6 @@
 local lx = require("lua.libs.lx.lx")
 
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.get("/lx-test", function(req, res)
 	local html = lx.div({
