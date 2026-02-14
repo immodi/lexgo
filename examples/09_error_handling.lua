@@ -1,4 +1,4 @@
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.get("/boom", function(req, res)
 	error("something exploded")

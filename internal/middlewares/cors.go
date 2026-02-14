@@ -1,57 +1,77 @@
 package middlewares
 
 import (
-	lua "github.com/yuin/gopher-lua"
+	"immodi/lexgo/internal/vm"
 )
 
-func DefaultLuaCORS(L *lua.LState) *lua.LFunction {
-	return L.NewFunction(func(L *lua.LState) int {
-		req := L.CheckTable(1)
-		res := L.CheckTable(2)
-		next := L.CheckFunction(3)
+type CorsMiddlewareAppProvider interface {
+	GetAllowedOrigin(requestOrigin string) string
+	GetRegisterdRoutes() map[string][]string
+	GetAllowedMethods(url string) string
+}
 
-		// Set CORS headers
-		L.CallByParam(lua.P{
-			Fn:      L.GetField(res, "setHeader"),
-			NRet:    0,
-			Protect: true,
-		}, lua.LString("Access-Control-Allow-Origin"), lua.LString("*"))
-
-		L.CallByParam(lua.P{
-			Fn:      L.GetField(res, "setHeader"),
-			NRet:    0,
-			Protect: true,
-		}, lua.LString("Access-Control-Allow-Methods"), lua.LString("GET, POST, PUT, PATCH, DELETE, OPTIONS"))
-
-		L.CallByParam(lua.P{
-			Fn:      L.GetField(res, "setHeader"),
-			NRet:    0,
-			Protect: true,
-		}, lua.LString("Access-Control-Allow-Headers"), lua.LString("Content-Type, Authorization"))
-
-		// Automatically respond to OPTIONS requests
-		method := L.GetField(req, "method").String()
-		if method == "OPTIONS" {
-			L.CallByParam(lua.P{
-				Fn:      L.GetField(res, "status"),
-				NRet:    0,
-				Protect: true,
-			}, lua.LNumber(200))
-
-			L.CallByParam(lua.P{
-				Fn:      L.GetField(res, "raw"),
-				NRet:    0,
-				Protect: true,
-			}, lua.LString(""))
-			return 0
+func DefaultLuaCORS(LVm vm.LVm, appProvider CorsMiddlewareAppProvider) *vm.LuaFunction {
+	return LVm.NewFunction(func(l vm.LVm) vm.LuaValue {
+		req, err := l.CheckTable(1)
+		if err != nil {
+			l.Error("internal error, failed to supply the 'req' table to the default cors middleware")
+			return nil
+		}
+		res, err := l.CheckTable(2)
+		if err != nil {
+			l.Error("internal error, failed to supply the 'res' table to the default cors middleware")
+			return nil
+		}
+		next, err := l.CheckFunction(3)
+		if err != nil {
+			l.Error("internal error, failed to supply the 'next' function to the default cors middleware")
+			return nil
 		}
 
-		// Call next middleware
-		L.CallByParam(lua.P{
-			Fn:      next,
-			NRet:    0,
-			Protect: true,
-		})
-		return 0
+		setHeaderFn, ok := vm.GenericGetField[*vm.LuaFunction](res, "setHeader")
+		if !ok {
+			l.Error("internal error, failed to supply the 'setHeader' function to the default cors middleware")
+			return nil
+		}
+
+		origin := req.GetField("origin").String()
+		allowedOrigin := appProvider.GetAllowedOrigin(origin)
+		if allowedOrigin != "" {
+			l.RunFunction(
+				setHeaderFn,
+				vm.LuaString("Access-Control-Allow-Origin"),
+				vm.LuaString(allowedOrigin),
+			)
+		}
+
+		url := req.GetField("url").String()
+		allowedMethods := appProvider.GetAllowedMethods(url)
+
+		if allowedMethods != "" {
+			l.RunFunction(
+				setHeaderFn,
+				vm.LuaString("Access-Control-Allow-Methods"),
+				vm.LuaString(allowedMethods),
+			)
+		}
+
+		l.RunFunction(
+			setHeaderFn,
+			vm.LuaString("Access-Control-Allow-Headers"),
+			vm.LuaString("Content-Type, Authorization"),
+		)
+
+		method := req.GetField("method").String()
+		if method == "OPTIONS" {
+			statusFn, ok := vm.GenericGetField[*vm.LuaFunction](res, "status")
+			if !ok {
+				l.Error("internal error, failed to supply the 'status' function to the default cors middleware")
+				return nil
+			}
+			l.RunFunction(statusFn, vm.LuaNumber(204))
+		}
+
+		l.RunFunction(next)
+		return nil
 	})
 }

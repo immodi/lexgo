@@ -159,6 +159,11 @@ func (t *LuaTable) GetField(key string) LuaValue {
 	return FromLua(t.LTable.RawGetString(key))
 }
 
+func GenericGetField[T LuaValue](field *LuaTable, key string) (T, bool) {
+	val, ok := field.GetField(key).(T)
+	return val, ok
+}
+
 // Get returns the value for an arbitrary key.
 func (t *LuaTable) Get(key LuaValue) LuaValue {
 	if t == nil || t.LTable == nil {

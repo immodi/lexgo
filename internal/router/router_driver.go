@@ -17,14 +17,22 @@ func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path 
 	}
 }
 
-func (router *RouterVmDriver) ResgisterLuaErrorHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaErrorHandler(fn *vm.LuaFunction) {
 	router.Router.ServerErrorFunc = fn
 }
 
-func (router *RouterVmDriver) ResgisterLuaNotFoundHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaNotFoundHandler(fn *vm.LuaFunction) {
 	router.Router.NotFoundFunc = fn
 }
 
 func (router *RouterVmDriver) RegisterLuaMiddleware(fn *vm.LuaFunction) {
 	router.Router.MiddleWares = append(router.Router.MiddleWares, fn)
+}
+
+func (router *RouterVmDriver) GetAllRegistredRoutes() map[string][]string {
+	var routes map[string][]string = map[string][]string{}
+	for route := range router.Router.Routes {
+		routes[route.Path] = append(routes[route.Path], string(route.Method))
+	}
+	return routes
 }

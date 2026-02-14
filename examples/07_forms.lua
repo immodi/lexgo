@@ -1,4 +1,4 @@
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.get("/form", function(req, res)
 	res.html([[

@@ -1,4 +1,4 @@
-local app = lexgo.new()
+local app = lexgo.new({})
 
 app.get("/params/:id/:name", function(req, res)
 	local id = req.params.id or "1"

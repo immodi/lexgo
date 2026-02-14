@@ -1,9 +1,21 @@
 package framework
 
 import (
+	"immodi/lexgo/internal/middlewares"
 	"immodi/lexgo/internal/vm"
 	"log"
 )
+
+type MiddlewaresContext struct {
+	MiddlewaresDriver MiddlewaresDriver
+	FinalHandler      *vm.LuaFunction
+	index             int
+}
+
+type AppProviderMiddlewaresImplementation struct {
+	appProvider        MiddlewaresAppProvider
+	getRegisterdRoutes func() map[string][]string
+}
 
 type MiddlewaresDriver interface {
 	ExecuteFinal(
@@ -15,10 +27,20 @@ type MiddlewaresDriver interface {
 	GetLuaRequest() Request
 }
 
-type MiddlewaresContext struct {
-	MiddlewaresDriver MiddlewaresDriver
-	FinalHandler      *vm.LuaFunction
-	index             int
+type MiddlewaresAppProvider interface {
+	GetAllowedOrigin(requestOrigin string) string
+	GetRegisterdRoutes(getRoutes func() map[string][]string) map[string][]string
+	GetAllowedMethods(url string, getRoutes func() map[string][]string) string
+}
+
+func (p *AppProviderMiddlewaresImplementation) GetRegisterdRoutes() map[string][]string {
+	return p.appProvider.GetRegisterdRoutes(p.getRegisterdRoutes)
+}
+func (p *AppProviderMiddlewaresImplementation) GetAllowedMethods(url string) string {
+	return p.appProvider.GetAllowedMethods(url, p.getRegisterdRoutes)
+}
+func (p *AppProviderMiddlewaresImplementation) GetAllowedOrigin(requestOrigin string) string {
+	return p.appProvider.GetAllowedOrigin(requestOrigin)
 }
 
 type Request interface {
@@ -33,12 +55,13 @@ func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	runNext(ctx, stack)
 }
 
-func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable) {
+func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, getRoutes func() map[string][]string, appProvider MiddlewaresAppProvider) {
 	mwTbl := luaVm.NewTable()
+	middlewaresAppProvider := &AppProviderMiddlewaresImplementation{appProvider: appProvider, getRegisterdRoutes: getRoutes}
 	tbl.SetField("middlewares", mwTbl)
 
-	// L.SetField(mwTbl, "logger", middlewares.DefaultLuaLogger(L))
-	// L.SetField(mwTbl, "cors", middlewares.DefaultLuaCORS(L))
+	mwTbl.SetField("logger", middlewares.DefaultLuaLogger(luaVm))
+	mwTbl.SetField("cors", middlewares.DefaultLuaCORS(luaVm, middlewaresAppProvider))
 }
 
 func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
@@ -53,7 +76,6 @@ func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 	ctx.index++
 
 	luaVm := ctx.MiddlewaresDriver.LuaVm()
-
 	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		runNext(ctx, stack)
 		return nil

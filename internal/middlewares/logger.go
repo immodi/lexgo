@@ -2,37 +2,40 @@ package middlewares
 
 import (
 	"fmt"
-	lua "github.com/yuin/gopher-lua"
+	"immodi/lexgo/internal/vm"
 )
 
-// DefaultLuaLogger returns a Lua function that logs request info
-func DefaultLuaLogger(L *lua.LState) *lua.LFunction {
-	return L.NewFunction(func(L *lua.LState) int {
-		// Arguments: req, res, next
-		req := L.CheckTable(1)
-		next := L.CheckFunction(3)
+func DefaultLuaLogger(LVm vm.LVm) *vm.LuaFunction {
+	return LVm.NewFunction(func(l vm.LVm) vm.LuaValue {
+		req, err := l.CheckTable(1)
+		if err != nil {
+			return nil
+		}
 
-		// Get request method and url
-		method := L.GetField(req, "method").String()
-		url := L.GetField(req, "url").String()
+		next, err := l.CheckFunction(3)
+		if err != nil {
+			return nil
+		}
 
-		// Print basic info
+		method := req.GetField("method").String()
+		url := req.GetField("url").String()
+
 		fmt.Printf("[LOG] %s %s\n", method, url)
 
 		// // Optionally print query parameters
-		// query := L.GetField(req, "query")
-		// if tbl, ok := query.(*lua.LTable); ok {
+		// query := req.GetField("query")
+		// if tbl, ok := query.(*vm.LuaTable); ok {
 		// 	fmt.Println("[LOG] Query params:")
-		// 	tbl.ForEach(func(k, v lua.LValue) {
+		// 	tbl.ForEach(func(k, v vm.LuaValue) {
 		// 		key := k.String()
 		// 		switch val := v.(type) {
-		// 		case *lua.LTable:
+		// 		case *vm.LuaTable:
 		// 			arr := []string{}
-		// 			val.ForEach(func(_, item lua.LValue) {
+		// 			val.ForEach(func(_, item vm.LuaValue) {
 		// 				arr = append(arr, item.String())
 		// 			})
 		// 			fmt.Printf("  %s: %v\n", key, arr)
-		// 		case lua.LString:
+		// 		case vm.LuaString:
 		// 			fmt.Printf("  %s: %s\n", key, string(val))
 		// 		default:
 		// 			fmt.Printf("  %s: %v\n", key, val)
@@ -40,13 +43,7 @@ func DefaultLuaLogger(L *lua.LState) *lua.LFunction {
 		// 	})
 		// }
 
-		// Call next middleware
-		L.CallByParam(lua.P{
-			Fn:      next,
-			NRet:    0,
-			Protect: true,
-		})
-
-		return 0
+		l.RunFunction(next)
+		return nil
 	})
 }

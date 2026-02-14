@@ -12,25 +12,27 @@ type HTTPRoute struct {
 
 type RouterDriver interface {
 	RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string)
-	ResgisterLuaErrorHandler(fn *vm.LuaFunction)
-	ResgisterLuaNotFoundHandler(fn *vm.LuaFunction)
+	RegisterLuaErrorHandler(fn *vm.LuaFunction)
+	RegisterLuaNotFoundHandler(fn *vm.LuaFunction)
 	RegisterLuaMiddleware(fn *vm.LuaFunction)
+
+	GetAllRegistredRoutes() map[string][]string
 }
 
-func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
+func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 	appTbl := luaVm.NewTable()
 
 	registerMethod := func(method string) *vm.LuaFunction {
 		return luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 			path, err := l.CheckString(1)
 			if err != nil {
-				l.Error(err.Error())
+				l.Error("expected a 'string' path argument")
 				return nil
 			}
 
 			fn, err := l.CheckFunction(2)
 			if err != nil {
-				l.Error(err.Error())
+				l.Error("expected a function argument with signiture 'function(req, res)'")
 				return nil
 			}
 
@@ -49,29 +51,29 @@ func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 	appTbl.SetField("notFound", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
-			l.Error(err.Error())
+			l.Error("expected a function argument with signiture 'function(req, res)'")
 			return nil
 		}
 
-		routerDriver.ResgisterLuaNotFoundHandler(fn)
+		routerDriver.RegisterLuaNotFoundHandler(fn)
 		return nil
 	}))
 
 	appTbl.SetField("error", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
-			l.Error(err.Error())
+			l.Error("expected a function argument with signiture 'function(err, res)'")
 			return nil
 		}
 
-		routerDriver.ResgisterLuaErrorHandler(fn)
+		routerDriver.RegisterLuaErrorHandler(fn)
 		return nil
 	}))
 
 	appTbl.SetField("use", luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		fn, err := l.CheckFunction(1)
 		if err != nil {
-			l.Error(err.Error())
+			l.Error("expected a function argument with signiture 'function(req, res, next)'")
 			return nil
 		}
 
@@ -84,16 +86,19 @@ func ResgisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 
 func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
-		http.Error(luaRes.HttpWriter, "404 Not Found", http.StatusNotFound)
+		luaRes.Flush()
 		return
 	}
 
-	err := luaVm.RunFunction(fn, luaReq.MakeLuaRequest(), luaRes.MakeLuaResponse())
-	if err != nil {
+	if err := luaVm.RunFunction(
+		fn,
+		luaReq.MakeLuaRequest(),
+		luaRes.MakeLuaResponse(),
+	); err != nil {
 		HandleServerError(luaVm, errFn, err.Error(), luaRes)
-	} else {
-		luaRes.Flush()
 	}
+
+	luaRes.Flush()
 }
 
 func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRes *LuaResponse) {
