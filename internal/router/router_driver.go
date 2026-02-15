@@ -10,11 +10,13 @@ type RouterVmDriver struct {
 }
 
 func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string) {
-	router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] = &Handler{
+	router.Router.ConstructRouterNode(&Handler{
 		Pattern: path,
 		Handler: fn,
 		Params:  map[string]string{},
-	}
+		Method:  framework.HTTPMethod(method),
+	})
+	// router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] =
 }
 
 func (router *RouterVmDriver) RegisterLuaErrorHandler(fn *vm.LuaFunction) {

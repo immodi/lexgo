@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"fmt"
 	"immodi/lexgo/internal/vm"
 	"net/http"
 )
@@ -86,6 +87,7 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 
 func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
+		luaRes.buf.WriteString(fmt.Sprintf("Handler Not Found at => %s", luaReq.HttpRequest.URL))
 		luaRes.Flush()
 		return
 	}
