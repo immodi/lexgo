@@ -87,8 +87,8 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 
 func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
+		luaRes.buf.Reset()
 		luaRes.buf.WriteString(fmt.Sprintf("Handler Not Found at => %s", luaReq.HttpRequest.URL))
-		luaRes.Flush()
 		return
 	}
 
@@ -98,6 +98,7 @@ func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, 
 		luaRes.MakeLuaResponse(),
 	); err != nil {
 		HandleServerError(luaVm, errFn, err.Error(), luaRes)
+		return
 	}
 
 	luaRes.Flush()
@@ -115,7 +116,8 @@ func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRe
 	if err != nil {
 		luaRes.Reset()
 		http.Error(luaRes.HttpWriter, err.Error(), http.StatusInternalServerError)
-	} else {
-		luaRes.Flush()
+		return
 	}
+
+	luaRes.Flush()
 }

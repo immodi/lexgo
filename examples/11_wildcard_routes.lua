@@ -1,5 +1,4 @@
 local app = lexgo.new({})
--- app.use(lexgo.middlewares.logger)
 
 app.get("/", function(req, res)
 	res.status(200)
@@ -17,5 +16,3 @@ app.get("/wild/*", function(req, res)
 end)
 
 app.listen(3000)
-
--- TODO: NEED TO TEST IF IT WORKS

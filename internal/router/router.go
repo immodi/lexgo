@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -80,19 +81,19 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 	assignWildNode := func(node *RouterTreeNode, index int) {
 		if node != nil && node.wildcard != nil {
 			wildCardNode = node.wildcard
-			params["*"] = strings.Join(incomingParts[index:], "/")
+			params["*"] = strings.Join(incomingParts[index+1:], "/")
 		}
 	}
 
 	for i, token := range incomingParts {
-		staticNode, ok := currentNode.staticChildren[token]
+		staticNode, ok := currentNode.staticChildren[fmt.Sprintf("%s:%s", incoming.Method, token)]
 		if ok {
 			currentNode = staticNode
 			assignWildNode(currentNode, i)
 			continue
 		}
 
-		if currentNode.param != nil && currentNode.param.handler != nil {
+		if currentNode.param != nil {
 			currentNode = currentNode.param
 			assignWildNode(currentNode, i)
 			params[currentNode.name] = token
@@ -124,49 +125,53 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 	return nil
 }
 
+// registers a lua router handler into the go router
 func (router *Router) ConstructRouterNode(handler *Handler) {
-	// the url words after base route [ /test/route --> [test, route] ]
-	incomingParts := strings.Split(strings.Trim(handler.Pattern, "/"), "/")
-	var node *RouterTreeNode = router.RootNode
+	parts := strings.Split(strings.Trim(handler.Pattern, "/"), "/")
+	node := router.RootNode
 
-	for i, token := range incomingParts {
-		var finalHandler *Handler = nil
-		if i+1 == len(incomingParts) {
+	for i, part := range parts {
+		isLast := i+1 == len(parts)
+		var finalHandler *Handler
+		if isLast {
 			finalHandler = handler
 		}
 
 		switch {
-		case strings.Contains(token, ":"):
-			paramName, _ := strings.CutPrefix(token, ":")
-			node.param = &RouterTreeNode{
-				name:           paramName,
-				handler:        finalHandler,
-				staticChildren: map[string]*RouterTreeNode{}}
+		case strings.HasPrefix(part, ":"):
+			paramName := part[1:]
+			if node.param == nil {
+				node.param = &RouterTreeNode{
+					name:           paramName,
+					staticChildren: map[string]*RouterTreeNode{},
+				}
+			}
+			if finalHandler != nil {
+				node.param.handler = finalHandler
+			}
 			node = node.param
-			continue
 
-		case strings.Contains(token, "*"):
+		case strings.HasPrefix(part, "*"):
 			node.wildcard = &RouterTreeNode{
 				name:           "*",
 				handler:        finalHandler,
-				staticChildren: map[string]*RouterTreeNode{}}
-
+				staticChildren: map[string]*RouterTreeNode{},
+			}
 			node = node.wildcard
 			return
 
 		default:
-			currentNode, ok := node.staticChildren[token]
-			if !ok {
-				currentNode = &RouterTreeNode{
-					name:           token,
+			key := fmt.Sprintf("%s:%s", handler.Method, part)
+			child, exists := node.staticChildren[key]
+			if !exists {
+				child = &RouterTreeNode{
+					name:           part,
 					handler:        finalHandler,
-					staticChildren: map[string]*RouterTreeNode{}}
-
-				node.staticChildren[token] = currentNode
+					staticChildren: map[string]*RouterTreeNode{},
+				}
+				node.staticChildren[key] = child
 			}
-			node = currentNode
-			continue
-
+			node = child
 		}
 	}
 }
