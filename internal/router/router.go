@@ -14,6 +14,7 @@ type Handler struct {
 	Handler *vm.LuaFunction
 	Params  map[string]string
 	Method  framework.HTTPMethod
+	Mws     []*vm.LuaFunction
 }
 
 type RouterTreeNode struct {
@@ -50,7 +51,6 @@ func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	route := framework.HTTPRoute{Path: req.URL.Path, Method: framework.HTTPMethod(req.Method)}
 	handler := router.matchRoute(route)
-	router.PrintTree()
 
 	if handler == nil {
 		handler = &Handler{
@@ -58,6 +58,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			Handler: router.NotFoundFunc,
 			Params:  map[string]string{},
 			Method:  framework.GET,
+			Mws:     make([]*vm.LuaFunction, 0),
 		}
 	}
 
@@ -67,6 +68,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := framework.NewMiddlewaresContext(
 		&MiddlewareVmDriver{router, luaReq, luaRes},
 		handler.Handler,
+		handler.Mws,
 	)
 
 	framework.ExecuteMiddlewares(ctx, router.MiddleWares)
@@ -110,6 +112,7 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 			Handler: currentNode.handler.Handler,
 			Params:  params,
 			Method:  currentNode.handler.Method,
+			Mws:     currentNode.handler.Mws,
 		}
 	}
 
@@ -119,6 +122,7 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 			Handler: wildCardNode.handler.Handler,
 			Params:  params,
 			Method:  wildCardNode.handler.Method,
+			Mws:     currentNode.handler.Mws,
 		}
 	}
 

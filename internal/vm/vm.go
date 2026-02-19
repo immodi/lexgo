@@ -28,6 +28,7 @@ type LVm interface {
 	CheckBool(index int) (bool, error)
 	CheckTable(index int) (*LuaTable, error)
 	CheckFunction(index int) (*LuaFunction, error)
+	CheckVariadicFunctions(startIndex int) ([]*LuaFunction, error)
 }
 
 type LuaVm struct {
@@ -196,6 +197,23 @@ func (luaVm *LuaVm) CheckFunction(index int) (*LuaFunction, error) {
 		return nil, fmt.Errorf("failed to convert to function")
 	}
 	return &LuaFunction{LFunction: fn}, nil
+}
+
+func (luaVm *LuaVm) CheckVariadicFunctions(startIndex int) ([]*LuaFunction, error) {
+	top := luaVm.L.GetTop()
+
+	middlewares := make([]*LuaFunction, 0)
+
+	for i := startIndex; i <= top; i++ {
+		mw, err := luaVm.CheckFunction(i)
+		if err != nil {
+			return nil, fmt.Errorf("middleware arguments must be functions")
+		}
+
+		middlewares = append(middlewares, mw)
+	}
+
+	return middlewares, nil
 }
 
 // Internal/low-level methods - assume lock is held

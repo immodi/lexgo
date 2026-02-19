@@ -12,7 +12,7 @@ type HTTPRoute struct {
 }
 
 type RouterDriver interface {
-	RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string)
+	RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string, mws []*vm.LuaFunction)
 	RegisterLuaErrorHandler(fn *vm.LuaFunction)
 	RegisterLuaNotFoundHandler(fn *vm.LuaFunction)
 	RegisterLuaMiddleware(fn *vm.LuaFunction)
@@ -37,7 +37,13 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 				return nil
 			}
 
-			routerDriver.RegisterLuaMethodHandler(fn, path, method)
+			mws, err := l.CheckVariadicFunctions(3)
+			if err != nil {
+				l.Error("expected one or more function argument with signiture 'function(req, res, next)'")
+				return nil
+			}
+
+			routerDriver.RegisterLuaMethodHandler(fn, path, method, mws)
 			return nil
 		})
 	}

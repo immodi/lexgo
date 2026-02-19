@@ -9,6 +9,7 @@ import (
 type MiddlewaresContext struct {
 	MiddlewaresDriver MiddlewaresDriver
 	FinalHandler      *vm.LuaFunction
+	RouteSpecificMws  []*vm.LuaFunction
 	index             int
 }
 
@@ -52,6 +53,10 @@ type Response interface {
 }
 
 func ExecuteMiddlewares(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
+	if ctx.RouteSpecificMws != nil {
+		stack = append(stack, ctx.RouteSpecificMws...)
+	}
+
 	runNext(ctx, stack)
 }
 
@@ -97,9 +102,11 @@ func runNext(ctx *MiddlewaresContext, stack []*vm.LuaFunction) {
 func NewMiddlewaresContext(
 	driver MiddlewaresDriver,
 	final *vm.LuaFunction,
+	routeSpecificMws []*vm.LuaFunction,
 ) *MiddlewaresContext {
 	return &MiddlewaresContext{
 		MiddlewaresDriver: driver,
 		FinalHandler:      final,
+		RouteSpecificMws:  routeSpecificMws,
 	}
 }

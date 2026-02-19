@@ -9,12 +9,13 @@ type RouterVmDriver struct {
 	Router *Router
 }
 
-func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string) {
+func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string, mws []*vm.LuaFunction) {
 	router.Router.ConstructRouterNode(&Handler{
 		Pattern: path,
 		Handler: fn,
 		Params:  map[string]string{},
 		Method:  framework.HTTPMethod(method),
+		Mws:     mws,
 	})
 	// router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] =
 }
