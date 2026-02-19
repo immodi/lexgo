@@ -1,0 +1,6 @@
+TODO: route level middlewares support [app.whatever(path, handler, scoped_middlewares...)]
+TODO: websockets support [app.ws(path, handler, scoped_middlewares...)]
+TODO: enviroment vars library
+TODO: Db acces lib without an orm
+TODO: custom lua vm with first class html snippets support and builtin 'lx'
+TODO: build system
