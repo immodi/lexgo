@@ -1,4 +1,3 @@
-TODO: wildcard routes [app.whatever("/*", function(req, res) end)]
 TODO: route level middlewares support [app.whatever(path, handler, scoped_middlewares...)]
 TODO: websockets support [app.ws(path, handler, scoped_middlewares...)]
 TODO: enviroment vars library
