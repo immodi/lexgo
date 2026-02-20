@@ -17,7 +17,6 @@ func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path 
 		Method:  framework.HTTPMethod(method),
 		Mws:     mws,
 	})
-	// router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] =
 }
 
 func (router *RouterVmDriver) RegisterLuaErrorHandler(fn *vm.LuaFunction) {

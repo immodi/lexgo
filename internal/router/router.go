@@ -10,11 +10,12 @@ import (
 )
 
 type Handler struct {
-	Pattern string
-	Handler *vm.LuaFunction
-	Params  map[string]string
-	Method  framework.HTTPMethod
-	Mws     []*vm.LuaFunction
+	Pattern       string
+	Handler       *vm.LuaFunction
+	Params        map[string]string
+	Method        framework.HTTPMethod
+	HijackHandler func(w http.ResponseWriter, req *http.Request)
+	Mws           []*vm.LuaFunction
 }
 
 type RouterTreeNode struct {
@@ -33,7 +34,7 @@ type Router struct {
 	MiddleWares     []*vm.LuaFunction
 	NotFoundFunc    *vm.LuaFunction
 	ServerErrorFunc *vm.LuaFunction
-	RootNode        *RouterTreeNode
+	rootNode        *RouterTreeNode
 }
 
 func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
@@ -41,7 +42,7 @@ func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
 		Routes:      make(map[framework.HTTPRoute]*Handler),
 		LuaVm:       luaVm,
 		MiddleWares: make([]*vm.LuaFunction, 0),
-		RootNode:    &RouterTreeNode{staticChildren: map[string]*RouterTreeNode{}},
+		rootNode:    &RouterTreeNode{staticChildren: map[string]*RouterTreeNode{}},
 	}
 
 	routerDriver := &RouterVmDriver{Router: router}
@@ -62,6 +63,11 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	if handler.HijackHandler != nil {
+		handler.HijackHandler(w, req)
+		return
+	}
+
 	luaReq := &framework.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
 	luaRes := framework.ConstructResponse(w, router.LuaVm)
 
@@ -75,7 +81,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
-	var currentNode *RouterTreeNode = router.RootNode
+	var currentNode *RouterTreeNode = router.rootNode
 	var wildCardNode *RouterTreeNode = nil
 	params := make(map[string]string)
 	incomingParts := strings.Split(strings.Trim(incoming.Path, "/"), "/")
@@ -108,21 +114,23 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 
 	if currentNode != nil && currentNode.handler != nil && currentNode.handler.Method == incoming.Method {
 		return &Handler{
-			Pattern: currentNode.handler.Pattern,
-			Handler: currentNode.handler.Handler,
-			Params:  params,
-			Method:  currentNode.handler.Method,
-			Mws:     currentNode.handler.Mws,
+			Pattern:       currentNode.handler.Pattern,
+			Handler:       currentNode.handler.Handler,
+			Params:        params,
+			Method:        currentNode.handler.Method,
+			HijackHandler: currentNode.handler.HijackHandler,
+			Mws:           currentNode.handler.Mws,
 		}
 	}
 
 	if wildCardNode != nil && wildCardNode.handler != nil && wildCardNode.handler.Method == incoming.Method {
 		return &Handler{
-			Pattern: wildCardNode.handler.Pattern,
-			Handler: wildCardNode.handler.Handler,
-			Params:  params,
-			Method:  wildCardNode.handler.Method,
-			Mws:     currentNode.handler.Mws,
+			Pattern:       wildCardNode.handler.Pattern,
+			Handler:       wildCardNode.handler.Handler,
+			Params:        params,
+			Method:        wildCardNode.handler.Method,
+			HijackHandler: wildCardNode.handler.HijackHandler,
+			Mws:           wildCardNode.handler.Mws,
 		}
 	}
 
@@ -132,7 +140,7 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 // registers a lua router handler into the go router
 func (router *Router) ConstructRouterNode(handler *Handler) {
 	parts := strings.Split(strings.Trim(handler.Pattern, "/"), "/")
-	node := router.RootNode
+	node := router.rootNode
 
 	for i, part := range parts {
 		isLast := i+1 == len(parts)

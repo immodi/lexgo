@@ -7,7 +7,7 @@ import (
 
 func (router *Router) PrintTree() {
 	fmt.Println("Router Tree:")
-	printNode(router.RootNode, "", true)
+	printNode(router.rootNode, "", true)
 }
 
 func printNode(node *RouterTreeNode, prefix string, isLast bool) {
