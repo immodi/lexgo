@@ -11,70 +11,47 @@ import (
 
 type Handler struct {
 	Pattern string
-	Handler *vm.LuaFunction
 	Params  map[string]string
+	Handler framework.RouterServerHandler
 	Method  framework.HTTPMethod
 	Mws     []*vm.LuaFunction
 }
 
 type RouterTreeNode struct {
-	name string
-
-	staticChildren map[string]*RouterTreeNode // literal segments
-	param          *RouterTreeNode            // :id
-	wildcard       *RouterTreeNode            // *path
-
-	handler *Handler
+	name           string
+	staticChildren map[string]*RouterTreeNode
+	param          *RouterTreeNode
+	wildcard       *RouterTreeNode
+	handler        *Handler
 }
 
 type Router struct {
-	LuaVm           vm.LVm
 	Routes          map[framework.HTTPRoute]*Handler
-	MiddleWares     []*vm.LuaFunction
-	NotFoundFunc    *vm.LuaFunction
-	ServerErrorFunc *vm.LuaFunction
+	NotFoundFunc    framework.RouterServerHandler
+	ServerErrorFunc framework.RouterServerHandler
 	RootNode        *RouterTreeNode
 }
 
-func MakeRouter(luaVm vm.LVm) (*Router, *RouterVmDriver) {
+func MakeRouter() (*Router, *RouterVmDriver) {
 	router := &Router{
-		Routes:      make(map[framework.HTTPRoute]*Handler),
-		LuaVm:       luaVm,
-		MiddleWares: make([]*vm.LuaFunction, 0),
-		RootNode:    &RouterTreeNode{staticChildren: map[string]*RouterTreeNode{}},
+		Routes:   make(map[framework.HTTPRoute]*Handler),
+		RootNode: &RouterTreeNode{staticChildren: map[string]*RouterTreeNode{}},
 	}
 
 	routerDriver := &RouterVmDriver{Router: router}
 	return router, routerDriver
 }
 
-func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (router *Router) GetHTTPRoute(req *http.Request) *framework.HTTPRoute {
 	route := framework.HTTPRoute{Path: req.URL.Path, Method: framework.HTTPMethod(req.Method)}
-	handler := router.matchRoute(route)
-
-	if handler == nil {
-		handler = &Handler{
-			Pattern: route.Path,
-			Handler: router.NotFoundFunc,
-			Params:  map[string]string{},
-			Method:  framework.GET,
-			Mws:     make([]*vm.LuaFunction, 0),
-		}
-	}
-
-	luaReq := &framework.LuaRequest{HttpRequest: req, LuaVm: router.LuaVm, Params: handler.Params}
-	luaRes := framework.ConstructResponse(w, router.LuaVm)
-
-	ctx := framework.NewMiddlewaresContext(
-		&MiddlewareVmDriver{router, luaReq, luaRes},
-		handler.Handler,
-		handler.Mws,
-	)
-
-	framework.ExecuteMiddlewares(ctx, router.MiddleWares)
+	return &route
 }
 
-func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
+func (router *Router) Match(incoming *framework.HTTPRoute) (
+	fn *Handler,
+	notFoundFn framework.RouterServerHandler,
+	serverErrorFn framework.RouterServerHandler,
+) {
 	var currentNode *RouterTreeNode = router.RootNode
 	var wildCardNode *RouterTreeNode = nil
 	params := make(map[string]string)
@@ -113,7 +90,7 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 			Params:  params,
 			Method:  currentNode.handler.Method,
 			Mws:     currentNode.handler.Mws,
-		}
+		}, router.ServerErrorFunc, router.NotFoundFunc
 	}
 
 	if wildCardNode != nil && wildCardNode.handler != nil && wildCardNode.handler.Method == incoming.Method {
@@ -123,14 +100,19 @@ func (router *Router) matchRoute(incoming framework.HTTPRoute) *Handler {
 			Params:  params,
 			Method:  wildCardNode.handler.Method,
 			Mws:     currentNode.handler.Mws,
-		}
+		}, router.ServerErrorFunc, router.NotFoundFunc
 	}
 
-	return nil
+	return &Handler{
+		Pattern: incoming.Path,
+		Handler: router.NotFoundFunc,
+		Params:  map[string]string{},
+		Method:  framework.GET,
+		Mws:     make([]*vm.LuaFunction, 0),
+	}, router.ServerErrorFunc, router.NotFoundFunc
 }
 
-// registers a lua router handler into the go router
-func (router *Router) ConstructRouterNode(handler *Handler) {
+func (router *Router) AppendRoute(handler *Handler) {
 	parts := strings.Split(strings.Trim(handler.Pattern, "/"), "/")
 	node := router.RootNode
 

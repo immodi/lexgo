@@ -9,27 +9,26 @@ type RouterVmDriver struct {
 	Router *Router
 }
 
-func (router *RouterVmDriver) RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string, mws []*vm.LuaFunction) {
-	router.Router.ConstructRouterNode(&Handler{
+func (router *RouterVmDriver) RegisterLuaMethodHandler(fn framework.RouterServerHandler, path string, method string, mws []*vm.LuaFunction) {
+	router.Router.AppendRoute(&Handler{
 		Pattern: path,
 		Handler: fn,
 		Params:  map[string]string{},
 		Method:  framework.HTTPMethod(method),
 		Mws:     mws,
 	})
-	// router.Router.Routes[framework.HTTPRoute{Path: path, Method: framework.HTTPMethod(method)}] =
 }
 
-func (router *RouterVmDriver) RegisterLuaErrorHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaErrorHandler(fn framework.RouterServerHandler) {
 	router.Router.ServerErrorFunc = fn
 }
 
-func (router *RouterVmDriver) RegisterLuaNotFoundHandler(fn *vm.LuaFunction) {
+func (router *RouterVmDriver) RegisterLuaNotFoundHandler(fn framework.RouterServerHandler) {
 	router.Router.NotFoundFunc = fn
 }
 
-func (router *RouterVmDriver) RegisterLuaMiddleware(fn *vm.LuaFunction) {
-	router.Router.MiddleWares = append(router.Router.MiddleWares, fn)
+func (router *RouterVmDriver) RegisterLuaMiddleware(fn framework.RouterServerHandler) {
+	// router.Router.MiddleWares = append(router.Router.MiddleWares, fn)
 }
 
 func (router *RouterVmDriver) GetAllRegistredRoutes() map[string][]string {

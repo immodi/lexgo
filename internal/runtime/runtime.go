@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"immodi/lexgo/internal/engine"
 	"immodi/lexgo/internal/framework"
 	"immodi/lexgo/internal/router"
 	"immodi/lexgo/internal/vm"
@@ -17,8 +18,9 @@ type Runtime struct {
 
 func New(luaFile string) (*Runtime, error) {
 	luaVm := vm.MakeLuaVm()
-	router, routerDriver := router.MakeRouter(luaVm)
-	app, err := framework.RegisterFramework(router.LuaVm, routerDriver)
+	router, routerDriver := router.MakeRouter()
+	engine := engine.MakeEngine(router, luaVm)
+	app, err := framework.RegisterFramework(luaVm, routerDriver)
 	if err != nil {
 		return nil, err
 	}
