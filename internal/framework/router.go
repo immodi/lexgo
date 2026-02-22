@@ -11,16 +11,23 @@ type HTTPRoute struct {
 	Method HTTPMethod
 }
 
+type RouterServerHandler interface {
+	Handle(luaReq *LuaRequest, luaRes *LuaResponse, args ...vm.LuaValue) error
+}
+
 type RouterDriver interface {
-	RegisterLuaMethodHandler(fn *vm.LuaFunction, path string, method string)
-	RegisterLuaErrorHandler(fn *vm.LuaFunction)
-	RegisterLuaNotFoundHandler(fn *vm.LuaFunction)
-	RegisterLuaMiddleware(fn *vm.LuaFunction)
+	MakeLuaHandler(luaVm vm.LVm, fn *vm.LuaFunction) RouterServerHandler
+	MakeGoHandler(fn func(w http.ResponseWriter, r *http.Request)) RouterServerHandler
+
+	RegisterHandler(fn RouterServerHandler, path string, method string, mws []RouterServerHandler)
+	RegisterErrorHandler(fn RouterServerHandler)
+	RegisterNotFoundHandler(fn RouterServerHandler)
+	RegisterMiddleware(fn RouterServerHandler)
 
 	GetAllRegistredRoutes() map[string][]string
 }
 
-func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
+func RegisterApp(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 	appTbl := luaVm.NewTable()
 
 	registerMethod := func(method string) *vm.LuaFunction {
@@ -37,7 +44,20 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 				return nil
 			}
 
-			routerDriver.RegisterLuaMethodHandler(fn, path, method)
+			mws, err := l.CheckVariadicFunctions(3)
+			if err != nil {
+				l.Error("expected one or more function argument with signiture 'function(req, res, next)'")
+				return nil
+			}
+
+			luaHandler := routerDriver.MakeLuaHandler(l, fn)
+
+			luaMws := make([]RouterServerHandler, 0)
+			for _, mw := range mws {
+				luaMws = append(luaMws, routerDriver.MakeLuaHandler(l, mw))
+			}
+
+			routerDriver.RegisterHandler(luaHandler, path, method, luaMws)
 			return nil
 		})
 	}
@@ -56,7 +76,8 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 			return nil
 		}
 
-		routerDriver.RegisterLuaNotFoundHandler(fn)
+		notFoundLuaHandler := routerDriver.MakeLuaHandler(l, fn)
+		routerDriver.RegisterNotFoundHandler(notFoundLuaHandler)
 		return nil
 	}))
 
@@ -67,7 +88,8 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 			return nil
 		}
 
-		routerDriver.RegisterLuaErrorHandler(fn)
+		errorLuaHandler := routerDriver.MakeLuaHandler(l, fn)
+		routerDriver.RegisterErrorHandler(errorLuaHandler)
 		return nil
 	}))
 
@@ -78,33 +100,30 @@ func RegisterRouter(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 			return nil
 		}
 
-		routerDriver.RegisterLuaMiddleware(fn)
+		mw := routerDriver.MakeLuaHandler(l, fn)
+		routerDriver.RegisterMiddleware(mw)
 		return nil
 	}))
 
 	return appTbl
 }
 
-func ExecuteLuaHandler(luaVm vm.LVm, errFn *vm.LuaFunction, fn *vm.LuaFunction, luaReq *LuaRequest, luaRes *LuaResponse) {
+func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterServerHandler, fn RouterServerHandler, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
 		luaRes.buf.Reset()
 		luaRes.buf.WriteString(fmt.Sprintf("Handler Not Found at => %s", luaReq.HttpRequest.URL))
 		return
 	}
 
-	if err := luaVm.RunFunction(
-		fn,
-		luaReq.MakeLuaRequest(),
-		luaRes.MakeLuaResponse(),
-	); err != nil {
-		HandleServerError(luaVm, errFn, err.Error(), luaRes)
+	if err := fn.Handle(luaReq, luaRes); err != nil {
+		HandleServerError(luaVm, errFn, err.Error(), luaReq, luaRes)
 		return
 	}
 
 	luaRes.Flush()
 }
 
-func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRes *LuaResponse) {
+func HandleServerError(luaVm vm.LVm, errFn RouterServerHandler, errMsg string, luaReq *LuaRequest, luaRes *LuaResponse) {
 	luaRes.Reset()
 
 	if errFn == nil {
@@ -112,8 +131,7 @@ func HandleServerError(luaVm vm.LVm, errFn *vm.LuaFunction, errMsg string, luaRe
 		return
 	}
 
-	err := luaVm.RunFunction(errFn, vm.LuaString(errMsg), luaRes.MakeLuaResponse())
-	if err != nil {
+	if err := errFn.Handle(luaReq, luaRes); err != nil {
 		luaRes.Reset()
 		http.Error(luaRes.HttpWriter, err.Error(), http.StatusInternalServerError)
 		return

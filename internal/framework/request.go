@@ -26,6 +26,10 @@ type LuaRequest struct {
 	Params      map[string]string
 }
 
+func ConstructRequest(req *http.Request, vm vm.LVm, params map[string]string) *LuaRequest {
+	return &LuaRequest{HttpRequest: req, LuaVm: vm, Params: params}
+}
+
 func (req *LuaRequest) MakeLuaRequest() *vm.LuaTable {
 	luaReq := req.LuaVm.NewTable()
 	req.setBasicFields(luaReq)
