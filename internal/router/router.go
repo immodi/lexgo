@@ -107,7 +107,7 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 		Pattern: incoming.Path,
 		Handler: router.NotFoundFunc,
 		Params:  map[string]string{},
-		Method:  framework.GET,
+		Method:  incoming.Method,
 		Mws:     make([]framework.RouterServerHandler, 0),
 	}, router.NotFoundFunc, router.ServerErrorFunc
 }
