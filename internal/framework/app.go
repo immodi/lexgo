@@ -63,7 +63,7 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 			data.AllowedOrigins = append(data.AllowedOrigins, origin.String())
 		})
 
-		app := RegisterRouter(l, routerDriver)
+		app := RegisterApp(l, routerDriver)
 		listenFn := l.NewFunction(func(l vm.LVm) vm.LuaValue {
 			port, err := l.CheckNumber(1)
 			if err != nil {
