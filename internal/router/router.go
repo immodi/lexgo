@@ -114,7 +114,7 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 
 func (router *Router) AppendRoute(handler *Handler) {
 	parts := strings.Split(strings.Trim(handler.Pattern, "/"), "/")
-	node := router.RootNode
+	node := router.rootNode
 
 	for i, part := range parts {
 		isLast := i+1 == len(parts)
