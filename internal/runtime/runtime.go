@@ -12,7 +12,7 @@ import (
 
 type Runtime struct {
 	LuaVm  vm.LVm
-	Router *router.Router
+	Engine http.Handler
 	Port   int32
 }
 
@@ -36,14 +36,14 @@ func New(luaFile string) (*Runtime, error) {
 
 	return &Runtime{
 		LuaVm:  luaVm,
-		Router: router,
+		Engine: engine,
 		Port:   app.Port,
 	}, nil
 }
 
 func (r *Runtime) Listen(addr string) error {
 	log.Printf("HTTP server starting at http://%s...\n", addr)
-	err := http.ListenAndServe(addr, r.Router)
+	err := http.ListenAndServe(addr, r.Engine)
 	if err != nil {
 		log.Println("failed to start server:", err)
 		return err

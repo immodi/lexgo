@@ -13,8 +13,8 @@ type ExecutionDriver interface {
 	)
 	HandleError(msg string, serverErr RouterServerHandler)
 	LuaVm() vm.LVm
-	GetLuaResponse() Response
-	GetLuaRequest() Request
+	GetLuaResponse() *LuaResponse
+	GetLuaRequest() *LuaRequest
 }
 
 type MiddlewaresAppProvider interface {
@@ -23,20 +23,12 @@ type MiddlewaresAppProvider interface {
 	GetAllowedMethods(url string, getRoutes func() map[string][]string) string
 }
 
-type Request interface {
-	MakeLuaRequest() *vm.LuaTable
-}
-
-type Response interface {
-	MakeLuaResponse() *vm.LuaTable
-}
-
 type ExecutionContext struct {
 	ExecutionDriver  ExecutionDriver
 	FinalHandler     RouterServerHandler
 	NotFoundHandler  RouterServerHandler
 	ServerErrHandler RouterServerHandler
-	MiddleWares      []*vm.LuaFunction
+	MiddleWares      []RouterServerHandler
 	index            int
 }
 
@@ -71,7 +63,7 @@ func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, getRoutes func()
 	mwTbl.SetField("cors", middlewares.DefaultLuaCORS(luaVm, middlewaresAppProvider))
 }
 
-func runNext(ctx *ExecutionContext, stack []*vm.LuaFunction) {
+func runNext(ctx *ExecutionContext, stack []RouterServerHandler) {
 	if ctx.index >= len(stack) {
 		ctx.ExecutionDriver.ExecuteFinal(
 			ctx.FinalHandler,
@@ -84,15 +76,15 @@ func runNext(ctx *ExecutionContext, stack []*vm.LuaFunction) {
 	ctx.index++
 
 	luaVm := ctx.ExecutionDriver.LuaVm()
+
 	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		runNext(ctx, stack)
 		return nil
 	})
 
-	err := luaVm.RunFunction(
-		current,
-		ctx.ExecutionDriver.GetLuaRequest().MakeLuaRequest(),
-		ctx.ExecutionDriver.GetLuaResponse().MakeLuaResponse(),
+	err := current.Handle(
+		ctx.ExecutionDriver.GetLuaRequest(),
+		ctx.ExecutionDriver.GetLuaResponse(),
 		next,
 	)
 
@@ -107,7 +99,7 @@ func NewExecutionContext(
 	final RouterServerHandler,
 	notFound RouterServerHandler,
 	serverErr RouterServerHandler,
-	middlewares []*vm.LuaFunction,
+	middlewares []RouterServerHandler,
 ) *ExecutionContext {
 	return &ExecutionContext{
 		ExecutionDriver:  driver,

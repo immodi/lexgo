@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"immodi/lexgo/internal/framework"
-	"immodi/lexgo/internal/vm"
 )
 
 type Handler struct {
@@ -14,7 +13,7 @@ type Handler struct {
 	Params  map[string]string
 	Handler framework.RouterServerHandler
 	Method  framework.HTTPMethod
-	Mws     []*vm.LuaFunction
+	Mws     []framework.RouterServerHandler
 }
 
 type RouterTreeNode struct {
@@ -29,6 +28,7 @@ type Router struct {
 	Routes          map[framework.HTTPRoute]*Handler
 	NotFoundFunc    framework.RouterServerHandler
 	ServerErrorFunc framework.RouterServerHandler
+	Mws             []framework.RouterServerHandler
 	RootNode        *RouterTreeNode
 }
 
@@ -89,8 +89,8 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 			Handler: currentNode.handler.Handler,
 			Params:  params,
 			Method:  currentNode.handler.Method,
-			Mws:     currentNode.handler.Mws,
-		}, router.ServerErrorFunc, router.NotFoundFunc
+			Mws:     append(currentNode.handler.Mws, router.Mws...),
+		}, router.NotFoundFunc, router.ServerErrorFunc
 	}
 
 	if wildCardNode != nil && wildCardNode.handler != nil && wildCardNode.handler.Method == incoming.Method {
@@ -99,8 +99,8 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 			Handler: wildCardNode.handler.Handler,
 			Params:  params,
 			Method:  wildCardNode.handler.Method,
-			Mws:     currentNode.handler.Mws,
-		}, router.ServerErrorFunc, router.NotFoundFunc
+			Mws:     append(wildCardNode.handler.Mws, router.Mws...),
+		}, router.NotFoundFunc, router.ServerErrorFunc
 	}
 
 	return &Handler{
@@ -108,8 +108,8 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 		Handler: router.NotFoundFunc,
 		Params:  map[string]string{},
 		Method:  framework.GET,
-		Mws:     make([]*vm.LuaFunction, 0),
-	}, router.ServerErrorFunc, router.NotFoundFunc
+		Mws:     make([]framework.RouterServerHandler, 0),
+	}, router.NotFoundFunc, router.ServerErrorFunc
 }
 
 func (router *Router) AppendRoute(handler *Handler) {

@@ -15,11 +15,11 @@ func (mwDriver *ExecutionDriver) LuaVm() vm.LVm {
 	return mwDriver.LVm
 }
 
-func (mwDriver *ExecutionDriver) GetLuaRequest() framework.Request {
+func (mwDriver *ExecutionDriver) GetLuaRequest() *framework.LuaRequest {
 	return mwDriver.LuaRequest
 }
 
-func (mwDriver *ExecutionDriver) GetLuaResponse() framework.Response {
+func (mwDriver *ExecutionDriver) GetLuaResponse() *framework.LuaResponse {
 	return mwDriver.LuaResponse
 }
 
