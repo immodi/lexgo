@@ -87,7 +87,7 @@ end)
 -- =========================
 -- ERROR HANDLER
 -- =========================
-app.error(function(err, res)
+app.error(function(req, res, err)
 	print("ERROR:", err)
 	res.status(500)
 	res.raw("custom 500")

@@ -131,7 +131,7 @@ func HandleServerError(luaVm vm.LVm, errFn RouterServerHandler, errMsg string, l
 		return
 	}
 
-	if err := errFn.Handle(luaReq, luaRes); err != nil {
+	if err := errFn.Handle(luaReq, luaRes, vm.LuaString(errMsg)); err != nil {
 		luaRes.Reset()
 		http.Error(luaRes.HttpWriter, err.Error(), http.StatusInternalServerError)
 		return
