@@ -9,7 +9,7 @@ app.notFound(function(req, res)
 	res.html("<h1>Not Found</h1>")
 end)
 
-app.error(function(err, res)
+app.error(function(req, res, err)
 	print(err)
 	res.status(500)
 	res.html('<h1 style="color: red;">Internal Server Error</h1>')

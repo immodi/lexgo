@@ -13,7 +13,7 @@ app.get("/throw", function(req, res)
 	res.html("<h1>This is illegal</h1>")
 end)
 
-app.error(function(err, res)
+app.error(function(req, res, err)
 	res.raw(err)
 end)
 
