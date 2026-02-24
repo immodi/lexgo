@@ -10,6 +10,7 @@ import (
 
 type LVm interface {
 	LoadMainLuaFile(mainFilePath string) error
+	LoadLuaString(fileContent string) error
 	RunFunction(fn *LuaFunction, args ...LuaValue) error
 	GetFunction(name string) (*LuaFunction, error)
 	GetGlobal(name string) (LuaValue, error)
@@ -86,6 +87,10 @@ func (luaVm *LuaVm) SetGlobal(name string, value LuaValue) {
 
 func (luaVm *LuaVm) LoadMainLuaFile(mainFilePath string) error {
 	return luaVm.L.DoFile(mainFilePath)
+}
+
+func (luaVm *LuaVm) LoadLuaString(fileContent string) error {
+	return luaVm.L.DoString(fileContent)
 }
 
 func (luaVm *LuaVm) NewTable() *LuaTable {

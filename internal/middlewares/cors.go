@@ -37,29 +37,44 @@ func DefaultLuaCORS(LVm vm.LVm, appProvider CorsMiddlewareAppProvider) *vm.LuaFu
 		origin := req.GetField("origin").String()
 		allowedOrigin := appProvider.GetAllowedOrigin(origin)
 		if allowedOrigin != "" {
-			l.RunFunction(
+			err = l.RunFunction(
 				setHeaderFn,
 				vm.LuaString("Access-Control-Allow-Origin"),
 				vm.LuaString(allowedOrigin),
 			)
+
+			if err != nil {
+				l.Error(err.Error())
+				return nil
+			}
 		}
 
 		url := req.GetField("url").String()
 		allowedMethods := appProvider.GetAllowedMethods(url)
 
 		if allowedMethods != "" {
-			l.RunFunction(
+			err = l.RunFunction(
 				setHeaderFn,
 				vm.LuaString("Access-Control-Allow-Methods"),
 				vm.LuaString(allowedMethods),
 			)
+
+			if err != nil {
+				l.Error(err.Error())
+				return nil
+			}
 		}
 
-		l.RunFunction(
+		err = l.RunFunction(
 			setHeaderFn,
 			vm.LuaString("Access-Control-Allow-Headers"),
 			vm.LuaString("Content-Type, Authorization"),
 		)
+
+		if err != nil {
+			l.Error(err.Error())
+			return nil
+		}
 
 		method := req.GetField("method").String()
 		if method == "OPTIONS" {
@@ -68,7 +83,12 @@ func DefaultLuaCORS(LVm vm.LVm, appProvider CorsMiddlewareAppProvider) *vm.LuaFu
 				l.Error("internal error, failed to supply the 'status' function to the default cors middleware")
 				return nil
 			}
-			l.RunFunction(statusFn, vm.LuaNumber(204))
+
+			err := l.RunFunction(statusFn, vm.LuaNumber(204))
+			if err != nil {
+				l.Error(err.Error())
+				return nil
+			}
 		}
 
 		l.RunFunction(next)

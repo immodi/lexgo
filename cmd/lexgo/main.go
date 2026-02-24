@@ -14,7 +14,7 @@ func main() {
 
 	switch args[0] {
 	case "run":
-		if err := runtime_cli.Runtime(args[1:]); err != nil {
+		if err := runtime_cli.Run(args[1:]); err != nil {
 			log.Fatalf(err.Error())
 		}
 	default:

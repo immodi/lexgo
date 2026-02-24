@@ -72,7 +72,9 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 				return nil
 			}
 			app.SetField("_port", vm.LuaNumber(port))
-			data.Port = int32(port)
+			portInt32 := int32(port)
+
+			data.Port = portInt32
 			return nil
 		})
 
@@ -81,15 +83,12 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 	})
 
 	tbl.SetField("new", newFn)
-	// data.GetRegisterdRoutes = func() map[string][]string {
-	// 	return routerDriver.GetAllRegistredRoutes()
-	// }
 	RegisterDefaultMiddlewares(luaVm, tbl, routerDriver.GetAllRegistredRoutes, data)
 
 	return data, nil
 }
 
-func (d AppData) IsProduction() bool {
+func (d *AppData) IsProduction() bool {
 	if d.Env == ENVProd {
 		return true
 	}
@@ -97,7 +96,7 @@ func (d AppData) IsProduction() bool {
 	return false
 }
 
-func (d AppData) GetAllowedOrigin(requestOrigin string) string {
+func (d *AppData) GetAllowedOrigin(requestOrigin string) string {
 	const (
 		DEFAULT_ALLOWED_ORIGIN_DEV  = "*"
 		DEFAULT_ALLOWED_ORIGIN_PROD = ""
@@ -116,7 +115,7 @@ func (d AppData) GetAllowedOrigin(requestOrigin string) string {
 	return allowedOrigin
 }
 
-func (d AppData) GetAllowedMethods(url string, getRoutes func() map[string][]string) string {
+func (d *AppData) GetAllowedMethods(url string, getRoutes func() map[string][]string) string {
 	const (
 		DEFAULT_METHODS_DEV  = "GET, POST, PUT, DELETE, OPTIONS"
 		DEFAULT_METHODS_PROD = ""

@@ -24,8 +24,8 @@ func (mwDriver *ExecutionDriver) GetLuaResponse() *framework.LuaResponse {
 }
 
 func (mwDriver *ExecutionDriver) ExecuteFinal(
-	fn framework.RouterServerHandler,
-	serverErr framework.RouterServerHandler,
+	fn framework.RouterHandler,
+	serverErr framework.RouterHandler,
 ) {
 	framework.ExecuteLuaHandler(
 		mwDriver.LVm,
@@ -36,7 +36,7 @@ func (mwDriver *ExecutionDriver) ExecuteFinal(
 	)
 }
 
-func (mwDriver *ExecutionDriver) HandleError(msg string, serverErr framework.RouterServerHandler) {
+func (mwDriver *ExecutionDriver) HandleError(msg string, serverErr framework.RouterHandler) {
 	framework.HandleServerError(
 		mwDriver.LVm,
 		serverErr,
