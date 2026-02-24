@@ -11,9 +11,9 @@ import (
 type Handler struct {
 	Pattern string
 	Params  map[string]string
-	Handler framework.RouterServerHandler
+	Handler framework.RouterHandler
 	Method  framework.HTTPMethod
-	Mws     []framework.RouterServerHandler
+	Mws     []framework.RouterHandler
 }
 
 type RouterTreeNode struct {
@@ -25,16 +25,16 @@ type RouterTreeNode struct {
 }
 
 type Router struct {
-	Routes          map[framework.HTTPRoute]*Handler
-	NotFoundFunc    framework.RouterServerHandler
-	ServerErrorFunc framework.RouterServerHandler
-	Mws             []framework.RouterServerHandler
+	// Routes          map[framework.HTTPRoute]*Handler
+	NotFoundFunc    framework.RouterHandler
+	ServerErrorFunc framework.RouterHandler
+	Mws             []framework.RouterHandler
 	RootNode        *RouterTreeNode
 }
 
-func MakeRouter() (*Router, *RouterVmDriver) {
+func New() (*Router, *RouterVmDriver) {
 	router := &Router{
-		Routes:   make(map[framework.HTTPRoute]*Handler),
+		// Routes:   make(map[framework.HTTPRoute]*Handler),
 		RootNode: &RouterTreeNode{staticChildren: map[string]*RouterTreeNode{}},
 	}
 
@@ -49,8 +49,8 @@ func (router *Router) GetHTTPRoute(req *http.Request) *framework.HTTPRoute {
 
 func (router *Router) Match(incoming *framework.HTTPRoute) (
 	fn *Handler,
-	notFoundFn framework.RouterServerHandler,
-	serverErrorFn framework.RouterServerHandler,
+	notFoundFn framework.RouterHandler,
+	serverErrorFn framework.RouterHandler,
 ) {
 	var currentNode *RouterTreeNode = router.RootNode
 	var wildCardNode *RouterTreeNode = nil
@@ -108,7 +108,7 @@ func (router *Router) Match(incoming *framework.HTTPRoute) (
 		Handler: router.NotFoundFunc,
 		Params:  map[string]string{},
 		Method:  incoming.Method,
-		Mws:     make([]framework.RouterServerHandler, 0),
+		Mws:     router.Mws,
 	}, router.NotFoundFunc, router.ServerErrorFunc
 }
 

@@ -11,18 +11,18 @@ type HTTPRoute struct {
 	Method HTTPMethod
 }
 
-type RouterServerHandler interface {
+type RouterHandler interface {
 	Handle(luaReq *LuaRequest, luaRes *LuaResponse, args ...vm.LuaValue) error
 }
 
 type RouterDriver interface {
-	MakeLuaHandler(luaVm vm.LVm, fn *vm.LuaFunction) RouterServerHandler
-	MakeGoHandler(fn func(w http.ResponseWriter, r *http.Request)) RouterServerHandler
+	MakeLuaHandler(luaVm vm.LVm, fn *vm.LuaFunction) RouterHandler
+	MakeGoHandler(fn func(w http.ResponseWriter, r *http.Request)) RouterHandler
 
-	RegisterHandler(fn RouterServerHandler, path string, method string, mws []RouterServerHandler)
-	RegisterErrorHandler(fn RouterServerHandler)
-	RegisterNotFoundHandler(fn RouterServerHandler)
-	RegisterMiddleware(fn RouterServerHandler)
+	RegisterHandler(fn RouterHandler, path string, method string, mws []RouterHandler)
+	RegisterErrorHandler(fn RouterHandler)
+	RegisterNotFoundHandler(fn RouterHandler)
+	RegisterMiddleware(fn RouterHandler)
 
 	GetAllRegistredRoutes() map[string][]string
 }
@@ -52,7 +52,7 @@ func RegisterApp(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 
 			luaHandler := routerDriver.MakeLuaHandler(l, fn)
 
-			luaMws := make([]RouterServerHandler, 0)
+			luaMws := make([]RouterHandler, 0)
 			for _, mw := range mws {
 				luaMws = append(luaMws, routerDriver.MakeLuaHandler(l, mw))
 			}
@@ -108,10 +108,11 @@ func RegisterApp(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 	return appTbl
 }
 
-func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterServerHandler, fn RouterServerHandler, luaReq *LuaRequest, luaRes *LuaResponse) {
+func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterHandler, fn RouterHandler, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
 		luaRes.buf.Reset()
 		luaRes.buf.WriteString(fmt.Sprintf("Handler Not Found at => %s", luaReq.HttpRequest.URL))
+		luaRes.Flush()
 		return
 	}
 
@@ -123,7 +124,7 @@ func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterServerHandler, fn RouterServerH
 	luaRes.Flush()
 }
 
-func HandleServerError(luaVm vm.LVm, errFn RouterServerHandler, errMsg string, luaReq *LuaRequest, luaRes *LuaResponse) {
+func HandleServerError(luaVm vm.LVm, errFn RouterHandler, errMsg string, luaReq *LuaRequest, luaRes *LuaResponse) {
 	luaRes.Reset()
 
 	if errFn == nil {

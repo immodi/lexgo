@@ -8,10 +8,10 @@ import (
 
 type ExecutionDriver interface {
 	ExecuteFinal(
-		handler RouterServerHandler,
-		serverErr RouterServerHandler,
+		handler RouterHandler,
+		serverErr RouterHandler,
 	)
-	HandleError(msg string, serverErr RouterServerHandler)
+	HandleError(msg string, serverErr RouterHandler)
 	LuaVm() vm.LVm
 	GetLuaResponse() *LuaResponse
 	GetLuaRequest() *LuaRequest
@@ -25,10 +25,10 @@ type MiddlewaresAppProvider interface {
 
 type ExecutionContext struct {
 	ExecutionDriver  ExecutionDriver
-	FinalHandler     RouterServerHandler
-	NotFoundHandler  RouterServerHandler
-	ServerErrHandler RouterServerHandler
-	MiddleWares      []RouterServerHandler
+	FinalHandler     RouterHandler
+	NotFoundHandler  RouterHandler
+	ServerErrHandler RouterHandler
+	MiddleWares      []RouterHandler
 	index            int
 }
 
@@ -57,13 +57,13 @@ func Execute(ctx *ExecutionContext) {
 func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, getRoutes func() map[string][]string, appProvider MiddlewaresAppProvider) {
 	mwTbl := luaVm.NewTable()
 	middlewaresAppProvider := &AppProviderMiddlewaresImplementation{appProvider: appProvider, getRegisterdRoutes: getRoutes}
-	tbl.SetField("middlewares", mwTbl)
 
+	tbl.SetField("middlewares", mwTbl)
 	mwTbl.SetField("logger", middlewares.DefaultLuaLogger(luaVm))
 	mwTbl.SetField("cors", middlewares.DefaultLuaCORS(luaVm, middlewaresAppProvider))
 }
 
-func runNext(ctx *ExecutionContext, stack []RouterServerHandler) {
+func runNext(ctx *ExecutionContext, stack []RouterHandler) {
 	if ctx.index >= len(stack) {
 		ctx.ExecutionDriver.ExecuteFinal(
 			ctx.FinalHandler,
@@ -76,7 +76,6 @@ func runNext(ctx *ExecutionContext, stack []RouterServerHandler) {
 	ctx.index++
 
 	luaVm := ctx.ExecutionDriver.LuaVm()
-
 	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
 		runNext(ctx, stack)
 		return nil
@@ -96,10 +95,10 @@ func runNext(ctx *ExecutionContext, stack []RouterServerHandler) {
 
 func NewExecutionContext(
 	driver ExecutionDriver,
-	final RouterServerHandler,
-	notFound RouterServerHandler,
-	serverErr RouterServerHandler,
-	middlewares []RouterServerHandler,
+	final RouterHandler,
+	notFound RouterHandler,
+	serverErr RouterHandler,
+	middlewares []RouterHandler,
 ) *ExecutionContext {
 	return &ExecutionContext{
 		ExecutionDriver:  driver,

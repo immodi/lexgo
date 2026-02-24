@@ -10,8 +10,8 @@ import (
 type RouterInterface interface {
 	Match(incoming *framework.HTTPRoute) (
 		fn *router.Handler,
-		notFoundFn framework.RouterServerHandler,
-		serverErrorFn framework.RouterServerHandler,
+		notFoundFn framework.RouterHandler,
+		serverErrorFn framework.RouterHandler,
 	)
 	GetHTTPRoute(req *http.Request) *framework.HTTPRoute
 	AppendRoute(handler *router.Handler)

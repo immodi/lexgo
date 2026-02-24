@@ -5,17 +5,22 @@ import (
 	"immodi/lexgo/internal/runtime"
 )
 
-func Runtime(args []string) error {
+func Run(args []string) error {
 	if len(args) <= 0 {
 		return fmt.Errorf("didn't supply main lua file")
 	}
 
 	mainFile := args[0]
-	rt, err := runtime.New(mainFile)
+	rt, err := runtime.New()
 	if err != nil {
 		return err
 	}
 	defer rt.Close()
 
-	return rt.Listen(fmt.Sprintf(":%d", rt.Port))
+	err = rt.LoadFile(mainFile)
+	if err != nil {
+		return err
+	}
+
+	return rt.Start()
 }
