@@ -4,6 +4,7 @@ import (
 	"immodi/lexgo/internal/middlewares"
 	"immodi/lexgo/internal/vm"
 	"log"
+	"strings"
 )
 
 type ExecutionDriver interface {
@@ -17,12 +18,6 @@ type ExecutionDriver interface {
 	GetLuaRequest() *LuaRequest
 }
 
-type MiddlewaresAppProvider interface {
-	GetAllowedOrigin(requestOrigin string) string
-	GetRegisterdRoutes(getRoutes func() map[string][]string) map[string][]string
-	GetAllowedMethods(url string, getRoutes func() map[string][]string) string
-}
-
 type ExecutionContext struct {
 	ExecutionDriver  ExecutionDriver
 	FinalHandler     RouterHandler
@@ -32,21 +27,38 @@ type ExecutionContext struct {
 	index            int
 }
 
-type AppProviderMiddlewaresImplementation struct {
-	appProvider        MiddlewaresAppProvider
-	getRegisterdRoutes func() map[string][]string
+type CORSRuntime struct {
+	appData      *AppData
+	routerDriver RouterDriver
 }
 
-func (p *AppProviderMiddlewaresImplementation) GetRegisterdRoutes() map[string][]string {
-	return p.appProvider.GetRegisterdRoutes(p.getRegisterdRoutes)
+func (cr *CORSRuntime) GetRegisterdRoutes() map[string][]string {
+	return cr.routerDriver.GetAllRegistredRoutes()
 }
 
-func (p *AppProviderMiddlewaresImplementation) GetAllowedMethods(url string) string {
-	return p.appProvider.GetAllowedMethods(url, p.getRegisterdRoutes)
+func (cr *CORSRuntime) GetAllowedMethods(url string) string {
+	const (
+		DEFAULT_METHODS_DEV  = "GET, POST, PUT, DELETE, OPTIONS"
+		DEFAULT_METHODS_PROD = ""
+	)
+	var allowedMethodsString string = DEFAULT_METHODS_DEV
+
+	registerdRotues := cr.GetRegisterdRoutes()
+	allowedMethods, ok := registerdRotues[url]
+
+	if cr.appData.IsProduction() {
+		allowedMethodsString = DEFAULT_METHODS_PROD
+	}
+
+	if ok {
+		allowedMethodsString = strings.Join(allowedMethods, ", ")
+	}
+
+	return allowedMethodsString
 }
 
-func (p *AppProviderMiddlewaresImplementation) GetAllowedOrigin(requestOrigin string) string {
-	return p.appProvider.GetAllowedOrigin(requestOrigin)
+func (cr *CORSRuntime) GetAllowedOrigin(requestOrigin string) string {
+	return cr.appData.GetAllowedOrigin(requestOrigin)
 }
 
 func Execute(ctx *ExecutionContext) {
@@ -54,13 +66,12 @@ func Execute(ctx *ExecutionContext) {
 	runNext(ctx, stack)
 }
 
-func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, getRoutes func() map[string][]string, appProvider MiddlewaresAppProvider) {
+func RegisterDefaultMiddlewares(luaVm vm.LVm, tbl *vm.LuaTable, cors *CORSRuntime) {
 	mwTbl := luaVm.NewTable()
-	middlewaresAppProvider := &AppProviderMiddlewaresImplementation{appProvider: appProvider, getRegisterdRoutes: getRoutes}
 
 	tbl.SetField("middlewares", mwTbl)
 	mwTbl.SetField("logger", middlewares.DefaultLuaLogger(luaVm))
-	mwTbl.SetField("cors", middlewares.DefaultLuaCORS(luaVm, middlewaresAppProvider))
+	mwTbl.SetField("cors", middlewares.DefaultLuaCORS(luaVm, cors))
 }
 
 func runNext(ctx *ExecutionContext, stack []RouterHandler) {

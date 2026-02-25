@@ -2,7 +2,6 @@ package framework
 
 import (
 	"immodi/lexgo/internal/vm"
-	"strings"
 )
 
 type AppData struct {
@@ -83,7 +82,10 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 	})
 
 	tbl.SetField("new", newFn)
-	RegisterDefaultMiddlewares(luaVm, tbl, routerDriver.GetAllRegistredRoutes, data)
+	RegisterDefaultMiddlewares(luaVm, tbl, &CORSRuntime{
+		appData:      data,
+		routerDriver: routerDriver,
+	})
 
 	return data, nil
 }
@@ -113,29 +115,4 @@ func (d *AppData) GetAllowedOrigin(requestOrigin string) string {
 	}
 
 	return allowedOrigin
-}
-
-func (d *AppData) GetAllowedMethods(url string, getRoutes func() map[string][]string) string {
-	const (
-		DEFAULT_METHODS_DEV  = "GET, POST, PUT, DELETE, OPTIONS"
-		DEFAULT_METHODS_PROD = ""
-	)
-	var allowedMethodsString string = DEFAULT_METHODS_DEV
-
-	registerdRotues := getRoutes()
-	allowedMethods, ok := registerdRotues[url]
-
-	if d.IsProduction() {
-		allowedMethodsString = DEFAULT_METHODS_PROD
-	}
-
-	if ok {
-		allowedMethodsString = strings.Join(allowedMethods, ", ")
-	}
-
-	return allowedMethodsString
-}
-
-func (d AppData) GetRegisterdRoutes(getRoutes func() map[string][]string) map[string][]string {
-	return getRoutes()
 }
