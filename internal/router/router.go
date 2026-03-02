@@ -161,3 +161,12 @@ func (router *Router) AppendRoute(handler *Handler) {
 		}
 	}
 }
+
+func (router *Router) ClearRoutes() {
+	router.RootNode = &RouterTreeNode{
+		staticChildren: map[string]*RouterTreeNode{},
+		param:          nil,
+		wildcard:       nil,
+		handler:        nil,
+	}
+}
