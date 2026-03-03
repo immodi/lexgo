@@ -1,6 +1,4 @@
 TODO: websockets support [app.ws(path, handler, scoped_middlewares...)]
 TODO: enviroment vars library
-TODO: hot reload during development
 TODO: Db acces lib without an orm
 TODO: custom lua vm with first class html snippets support and builtin 'lx'
-TODO: build system

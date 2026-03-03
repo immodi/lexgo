@@ -6,6 +6,7 @@ const mainSrc string = `
 package main
 
 import (
+	"context"
 	"embed"
 	"immodi/lexgo/internal/runtime"
 	"log"
@@ -31,7 +32,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	err = rt.Start()
+	err = rt.Start(context.Background())
 	if err != nil {
 		log.Fatal(err.Error())
 	}
