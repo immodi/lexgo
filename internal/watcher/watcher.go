@@ -14,7 +14,6 @@ type Watcher struct {
 	SrcPath     string
 	SrcFilesMap map[string][]byte
 	Callback    func() error
-	Cancel      context.CancelFunc
 }
 
 func (w *Watcher) Watch(ctx context.Context) error {
@@ -40,7 +39,7 @@ func (w *Watcher) Watch(ctx context.Context) error {
 					continue
 				}
 
-				if w.compareFiles(entry.Name(), content) {
+				if isChanged := w.compareFiles(entry.Name(), content); isChanged {
 					log.Printf("reloading file %v...", entry.Name())
 					if err := w.Callback(); err != nil {
 						log.Println("callback error:", err)
@@ -61,7 +60,12 @@ func (w *Watcher) readLuaFile(filePath string) ([]byte, error) {
 func (w *Watcher) compareFiles(filePath string, newContent []byte) bool {
 	oldContent, ok := w.SrcFilesMap[filePath]
 
-	if ok && bytes.Equal(oldContent, newContent) {
+	if !ok {
+		w.SrcFilesMap[filePath] = newContent
+		return false
+	}
+
+	if bytes.Equal(oldContent, newContent) {
 		return false
 	}
 

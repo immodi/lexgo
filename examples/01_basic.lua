@@ -5,7 +5,7 @@ local app = lexgo.new({
 
 app.get("/", function(req, res)
 	res.status(500)
-	res.raw("Raw text hello")
+	res.raw("Raw hello")
 end)
 
 app.listen(3000)

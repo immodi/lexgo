@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"immodi/lexgo/internal/engine"
 	"immodi/lexgo/internal/framework"
@@ -8,29 +9,37 @@ import (
 	"immodi/lexgo/internal/vm"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 )
 
 type Runtime struct {
-	LuaVm  vm.LVm
-	Engine http.Handler
-	Router framework.RouterDriver
-	Port   func() int32
+	LuaVm     vm.LVm
+	Engine    http.Handler
+	Router    framework.RouterDriver
+	Port      func() int32
+	RestartCh chan struct{}
+	ErrorCh   chan error
 }
 
 func New() (*Runtime, error) {
 	luaVm := vm.MakeLuaVm()
 	router, routerDriver := router.New()
 	engine := engine.MakeEngine(router, luaVm)
+	restartChannel := make(chan struct{})
+	errorCh := make(chan error, 1)
 
-	app, err := framework.RegisterFramework(luaVm, routerDriver)
+	app, err := framework.RegisterFramework(luaVm, routerDriver, restartChannel)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Runtime{
-		LuaVm:  luaVm,
-		Engine: engine,
-		Router: routerDriver,
+		LuaVm:     luaVm,
+		Engine:    engine,
+		Router:    routerDriver,
+		RestartCh: restartChannel,
+		ErrorCh:   errorCh,
 		Port: func() int32 {
 			return app.Port
 		},
@@ -45,25 +54,63 @@ func (r *Runtime) LoadString(code string) error {
 	return r.LuaVm.LoadLuaString(code)
 }
 
-func (r *Runtime) listen() error {
-	addr := fmt.Sprintf(":%d", r.Port())
-	log.Printf("HTTP server starting at http://%s...\n", addr)
+func (r *Runtime) listen(server *http.Server, ctx context.Context) error {
+	log.Printf("HTTP server starting at http://%s...\n", server.Addr)
 
-	err := http.ListenAndServe(addr, r.Engine)
-	if err != nil {
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		server.Shutdown(shutdownCtx)
+	}()
+
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
 		log.Println("failed to start server:", err)
 		return err
 	}
 
 	return nil
-}
 
-func (r *Runtime) Start() error {
+}
+func (r *Runtime) Start(ctx context.Context) error {
 	if r.Port() == 0 {
 		return fmt.Errorf("invalid application port, please use 'app.listen()'")
 	}
 
-	return r.listen()
+	for {
+		var wg sync.WaitGroup
+		serverCtx, severCancel := context.WithCancel(ctx)
+		server := &http.Server{
+			Addr:    fmt.Sprintf(":%d", r.Port()),
+			Handler: r.Engine,
+		}
+
+		wg.Go(func() {
+			err := r.listen(server, serverCtx)
+			if err != nil {
+				r.ErrorCh <- err
+				return
+			}
+		})
+
+		select {
+		case <-r.RestartCh:
+			severCancel()
+			wg.Wait()
+			continue
+		case err := <-r.ErrorCh:
+			severCancel()
+			wg.Wait()
+			return err
+		case <-ctx.Done():
+			severCancel()
+			wg.Wait()
+			return nil
+		}
+
+	}
+
 }
 
 func (r *Runtime) Close() {

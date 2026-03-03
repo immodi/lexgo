@@ -7,6 +7,7 @@ import (
 	"immodi/lexgo/internal/watcher"
 	"log"
 	"path/filepath"
+	"time"
 )
 
 func RunAndWatch(args []string) error {
@@ -30,15 +31,38 @@ func RunAndWatch(args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	errCh := make(chan error, 1)
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+
+	serverErrCh := make(chan error, 1)
+	watcherErrCh := make(chan error, 1)
 
 	go func() {
-		if err := rt.Start(); err != nil {
-			log.Println("runtime error:", err)
-			cancel()
-			errCh <- err
+		for {
+			serverCtx, serverCancel := context.WithCancel(context.Background())
+
+			go func(ctx context.Context) {
+				if err := rt.Start(ctx); err != nil {
+					serverErrCh <- err
+				}
+			}(serverCtx)
+
+			select {
+			case <-rt.RestartCh:
+				log.Println("restarting server...")
+				serverCancel()
+				// wait a short moment to avoid race on port
+				time.Sleep(100 * time.Millisecond)
+				continue
+			case err := <-serverErrCh:
+				log.Println("runtime error:", err)
+				serverCancel()
+				rootCancel() // stop everything
+				return
+			case <-rootCtx.Done():
+				serverCancel()
+				return
+			}
 		}
 	}()
 
@@ -48,20 +72,19 @@ func RunAndWatch(args []string) error {
 			SrcPath:     srcPath,
 			SrcFilesMap: make(map[string][]byte),
 			Callback:    loadFile,
-			Cancel:      cancel,
 		}
 
-		if err := watcher.Watch(ctx); err != nil {
+		if err := watcher.Watch(rootCtx); err != nil {
 			log.Println("watcher error:", err)
-			cancel()
-			errCh <- err
+			watcherErrCh <- err
+			rootCancel()
 		}
 	}()
 
 	select {
-	case err := <-errCh:
+	case err := <-watcherErrCh:
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-rootCtx.Done():
+		return rootCtx.Err()
 	}
 }

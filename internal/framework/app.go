@@ -10,7 +10,7 @@ type AppData struct {
 	AllowedOrigins []string
 }
 
-func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error) {
+func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver, restartServerChannel chan struct{}) (*AppData, error) {
 	tbl := luaVm.NewTable()
 	data := &AppData{}
 
@@ -74,6 +74,10 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver) (*AppData, error
 			}
 			app.SetField("_port", vm.LuaNumber(port))
 			portInt32 := int32(port)
+
+			if data.Port != 0 {
+				restartServerChannel <- struct{}{}
+			}
 
 			data.Port = portInt32
 			return nil
