@@ -115,3 +115,7 @@ func (router *RouterVmDriver) GetAllRegistredRoutes() map[string][]string {
 	traverse(router.Router.RootNode, []string{})
 	return routes
 }
+
+func (router *RouterVmDriver) ClearRoutes() {
+	router.Router.ClearRoutes()
+}

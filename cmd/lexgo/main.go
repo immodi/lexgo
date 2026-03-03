@@ -1,6 +1,7 @@
 package main
 
 import (
+	"immodi/lexgo/cmd/build"
 	runtime_cli "immodi/lexgo/cmd/runtime"
 	"log"
 	"os"
@@ -14,7 +15,11 @@ func main() {
 
 	switch args[0] {
 	case "run":
-		if err := runtime_cli.Run(args[1:]); err != nil {
+		if err := runtime_cli.RunAndWatch(args[1:]); err != nil {
+			log.Fatalf(err.Error())
+		}
+	case "build":
+		if err := build.Build(args[1:]); err != nil {
 			log.Fatalf(err.Error())
 		}
 	default:

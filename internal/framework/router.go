@@ -25,6 +25,7 @@ type RouterDriver interface {
 	RegisterMiddleware(fn RouterHandler)
 
 	GetAllRegistredRoutes() map[string][]string
+	ClearRoutes()
 }
 
 func RegisterApp(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
