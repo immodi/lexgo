@@ -46,12 +46,12 @@ func New() (*Runtime, error) {
 	}, nil
 }
 
-func (r *Runtime) LoadFile(path string) error {
-	return r.LuaVm.LoadMainLuaFile(path)
+func (r *Runtime) DoFile(path string) error {
+	return r.LuaVm.DoLuaFile(path)
 }
 
-func (r *Runtime) LoadString(code string) error {
-	return r.LuaVm.LoadLuaString(code)
+func (r *Runtime) DoString(code string) error {
+	return r.LuaVm.DoLuaString(code)
 }
 
 func (r *Runtime) listen(server *http.Server, ctx context.Context) error {

@@ -9,9 +9,12 @@ import (
 )
 
 type LVm interface {
-	LoadMainLuaFile(mainFilePath string) error
-	LoadLuaString(fileContent string) error
+	DoLuaFile(path string) error
+	DoLuaString(source string) error
+	LoadLuaFile(path string) (*LuaFunction, error)
+	LoadLuaString(source string) (*LuaFunction, error)
 	RunFunction(fn *LuaFunction, args ...LuaValue) error
+	RunFunctionMultiReturn(fn *LuaFunction, args ...LuaValue) ([]LuaValue, error)
 	GetFunction(name string) (*LuaFunction, error)
 	GetGlobal(name string) (LuaValue, error)
 	SetGlobal(name string, value LuaValue)
@@ -85,12 +88,32 @@ func (luaVm *LuaVm) SetGlobal(name string, value LuaValue) {
 	luaVm.L.SetGlobal(name, ToLua(value))
 }
 
-func (luaVm *LuaVm) LoadMainLuaFile(mainFilePath string) error {
-	return luaVm.L.DoFile(mainFilePath)
+func (luaVm *LuaVm) DoLuaFile(path string) error {
+	return luaVm.L.DoFile(path)
 }
 
-func (luaVm *LuaVm) LoadLuaString(fileContent string) error {
-	return luaVm.L.DoString(fileContent)
+func (luaVm *LuaVm) LoadLuaFile(path string) (*LuaFunction, error) {
+	lFn, err := luaVm.L.LoadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fn := &LuaFunction{LFunction: lFn}
+	return fn, nil
+}
+
+func (luaVm *LuaVm) DoLuaString(source string) error {
+	return luaVm.L.DoString(source)
+}
+
+func (luaVm *LuaVm) LoadLuaString(source string) (*LuaFunction, error) {
+	lFn, err := luaVm.L.LoadString(source)
+	if err != nil {
+		return nil, err
+	}
+
+	fn := &LuaFunction{LFunction: lFn}
+	return fn, nil
 }
 
 func (luaVm *LuaVm) NewTable() *LuaTable {
@@ -146,6 +169,31 @@ func (luaVm *LuaVm) RunFunction(fn *LuaFunction, args ...LuaValue) error {
 	}
 
 	return luaVm.pcall(len(args), 0)
+}
+
+func (luaVm *LuaVm) RunFunctionMultiReturn(fn *LuaFunction, args ...LuaValue) ([]LuaValue, error) {
+	top := luaVm.L.GetTop()
+	defer luaVm.L.SetTop(top)
+
+	luaVm.push(fn)
+	for _, arg := range args {
+		luaVm.push(arg)
+	}
+
+	// Use lua.MultRet to allow multiple returns
+	if err := luaVm.pcall(len(args), lua.MultRet); err != nil {
+		return nil, err
+	}
+
+	// number of return values
+	nRet := luaVm.L.GetTop() - top
+
+	results := make([]LuaValue, nRet)
+	for i := range nRet {
+		results[i] = FromLua(luaVm.L.Get(top + 1 + i))
+	}
+
+	return results, nil
 }
 
 func (luaVm *LuaVm) Error(mes string) {

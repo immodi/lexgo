@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"fmt"
 	"immodi/lexgo/internal/vm"
 )
 
@@ -88,6 +89,13 @@ func RegisterFramework(luaVm vm.LVm, routerDriver RouterDriver, restartServerCha
 	})
 
 	tbl.SetField("new", newFn)
+
+	lx, err := LxTable(luaVm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load 'lx' library into runtime")
+	}
+	tbl.SetField("lx", lx)
+
 	RegisterDefaultMiddlewares(luaVm, tbl, &CORSRuntime{
 		appData:      data,
 		routerDriver: routerDriver,
