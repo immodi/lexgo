@@ -1,6 +1,8 @@
 local app = lexgo.new({})
 local lx = lexgo.lx
 
+app.use(lexgo.middlewares.logger)
+
 app.get("/lx", function(req, res)
 	local html = lx.div({
 		id = "container",
