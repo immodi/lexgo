@@ -1,12 +1,13 @@
-local lx = require("lua.libs.lx.lx")
-
 local app = lexgo.new({})
+local lx = lexgo.lx
 
-app.get("/lx-test", function(req, res)
+app.use(lexgo.middlewares.logger)
+
+app.get("/lx", function(req, res)
 	local html = lx.div({
-		id = "main",
+		id = "container",
 		class = "container",
-		lx.h1({ "Hello from lx!" }),
+		lx.h1({ "Hello from LX!" }),
 		lx.section({
 			class = "section-class",
 			lx.p({ class = "text-span", "This is a span" }),

@@ -27,7 +27,7 @@ func main() {
 	}
 	defer rt.Close()
 
-	err = rt.LoadString(string(mainFile))
+	err = rt.DoString(string(mainFile))
 	if err != nil {
 		log.Fatal(err.Error())
 	}

@@ -25,7 +25,6 @@ type RouterTreeNode struct {
 }
 
 type Router struct {
-	// Routes          map[framework.HTTPRoute]*Handler
 	NotFoundFunc    framework.RouterHandler
 	ServerErrorFunc framework.RouterHandler
 	Mws             []framework.RouterHandler
@@ -169,4 +168,6 @@ func (router *Router) ClearRoutes() {
 		wildcard:       nil,
 		handler:        nil,
 	}
+
+	router.Mws = make([]framework.RouterHandler, 0)
 }

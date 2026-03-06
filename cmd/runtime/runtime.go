@@ -24,7 +24,7 @@ func RunAndWatch(args []string) error {
 	defer rt.Close()
 
 	loadFile := func() error {
-		return rt.LoadFile(filePath)
+		return rt.DoFile(filePath)
 	}
 
 	if err = loadFile(); err != nil {
