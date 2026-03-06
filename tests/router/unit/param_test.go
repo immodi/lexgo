@@ -9,7 +9,7 @@ import (
 )
 
 func TestRouter_ParamRoute(t *testing.T) {
-	r, rd := router.MakeRouter()
+	r, rd := router.New()
 
 	r.AppendRoute(&router.Handler{
 		Pattern: "/user/:id",
@@ -28,4 +28,3 @@ func TestRouter_ParamRoute(t *testing.T) {
 		t.Fatalf("expected id=42, got %s", h.Params["id"])
 	}
 }
-

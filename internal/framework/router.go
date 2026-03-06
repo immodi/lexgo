@@ -112,6 +112,7 @@ func RegisterApp(luaVm vm.LVm, routerDriver RouterDriver) *vm.LuaTable {
 func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterHandler, fn RouterHandler, luaReq *LuaRequest, luaRes *LuaResponse) {
 	if fn == nil {
 		luaRes.buf.Reset()
+		luaRes.statusCode = http.StatusNotFound
 		luaRes.buf.WriteString(fmt.Sprintf("Handler Not Found at => %s", luaReq.HttpRequest.URL))
 		luaRes.Flush()
 		return
