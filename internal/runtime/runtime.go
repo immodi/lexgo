@@ -23,9 +23,9 @@ type Runtime struct {
 }
 
 func New() (*Runtime, error) {
-	luaVm := vm.MakeLuaVm()
+	luaVm := vm.New()
 	router, routerDriver := router.New()
-	engine := engine.MakeEngine(router, luaVm)
+	engine := engine.New(router, luaVm)
 	restartChannel := make(chan struct{})
 	errorCh := make(chan error, 1)
 

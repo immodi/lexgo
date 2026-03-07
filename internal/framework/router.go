@@ -12,7 +12,7 @@ type HTTPRoute struct {
 }
 
 type RouterHandler interface {
-	Handle(luaReq *LuaRequest, luaRes *LuaResponse, args ...vm.LuaValue) error
+	Handle(luaReq *LuaRequest, luaRes *LuaResponse, next func(), args ...any) error
 }
 
 type RouterDriver interface {
@@ -118,7 +118,7 @@ func ExecuteLuaHandler(luaVm vm.LVm, errFn RouterHandler, fn RouterHandler, luaR
 		return
 	}
 
-	if err := fn.Handle(luaReq, luaRes); err != nil {
+	if err := fn.Handle(luaReq, luaRes, nil); err != nil {
 		HandleServerError(luaVm, errFn, err.Error(), luaReq, luaRes)
 		return
 	}
@@ -134,7 +134,7 @@ func HandleServerError(luaVm vm.LVm, errFn RouterHandler, errMsg string, luaReq 
 		return
 	}
 
-	if err := errFn.Handle(luaReq, luaRes, vm.LuaString(errMsg)); err != nil {
+	if err := errFn.Handle(luaReq, luaRes, nil, vm.LuaString(errMsg)); err != nil {
 		luaRes.Reset()
 		http.Error(luaRes.HttpWriter, err.Error(), http.StatusInternalServerError)
 		return
