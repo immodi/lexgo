@@ -1,5 +1,5 @@
 local app = lexgo.new({})
-local lx = lexgo.lx
+local lx = lexgo.libs.lx
 
 app.use(lexgo.middlewares.logger)
 

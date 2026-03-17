@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	userlibs "immodi/lexgo/internal/framework/user_libs"
 	"immodi/lexgo/internal/vm"
 )
 
@@ -29,12 +30,21 @@ func RegisterFramework(
 }
 
 func registerLibraries(luaVm vm.LVm, tbl *vm.LuaTable) error {
-	lx, err := LxTable(luaVm)
+	libsTbl := luaVm.NewTable()
+
+	lx, err := userlibs.MakeLX(luaVm)
 	if err != nil {
 		return fmt.Errorf("failed to load 'lx' library into runtime")
 	}
+	libsTbl.SetField("lx", lx)
 
-	tbl.SetField("lx", lx)
+	http, err := userlibs.MakeHTTP(luaVm)
+	if err != nil {
+		return fmt.Errorf("failed to load 'http' library into runtime")
+	}
+	libsTbl.SetField("http", http)
+
+	tbl.SetField("libs", libsTbl)
 	return nil
 }
 
