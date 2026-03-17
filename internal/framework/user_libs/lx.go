@@ -1,4 +1,4 @@
-package framework
+package userlibs
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	lx_embed "immodi/lexgo/lua/libs/lx"
 )
 
-func LxTable(vm vm.LVm) (vm.LuaValue, error) {
+func MakeLX(vm vm.LVm) (vm.LuaValue, error) {
 	source := lx_embed.LxSource
 	fn, err := vm.LoadLuaString(source)
 	if err != nil {
