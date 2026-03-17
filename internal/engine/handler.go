@@ -22,7 +22,7 @@ type Engine struct {
 	Router RouterInterface
 }
 
-func MakeEngine(router RouterInterface, vm vm.LVm) http.Handler {
+func New(router RouterInterface, vm vm.LVm) http.Handler {
 	return &Engine{LuaVm: vm, Router: router}
 }
 

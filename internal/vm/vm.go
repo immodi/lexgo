@@ -40,7 +40,7 @@ type LuaVm struct {
 	mu sync.Mutex
 }
 
-func MakeLuaVm() *LuaVm {
+func New() *LuaVm {
 	L := lua.NewState()
 	return &LuaVm{L: L}
 }

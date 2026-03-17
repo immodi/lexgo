@@ -9,7 +9,7 @@ import (
 )
 
 func TestRouter_NotFound(t *testing.T) {
-	r, rd := router.MakeRouter()
+	r, rd := router.New()
 
 	r.NotFoundFunc = rd.MakeGoHandler(func(w http.ResponseWriter, req *http.Request) {})
 

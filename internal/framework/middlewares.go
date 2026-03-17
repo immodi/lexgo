@@ -86,11 +86,10 @@ func runNext(ctx *ExecutionContext, stack []RouterHandler) {
 	current := stack[ctx.index]
 	ctx.index++
 
-	luaVm := ctx.ExecutionDriver.LuaVm()
-	next := luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
+	// luaVm := ctx.ExecutionDriver.LuaVm()
+	next := func() {
 		runNext(ctx, stack)
-		return nil
-	})
+	}
 
 	err := current.Handle(
 		ctx.ExecutionDriver.GetLuaRequest(),

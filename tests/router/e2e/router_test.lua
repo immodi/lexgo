@@ -1,12 +1,10 @@
 local app = lexgo.new({})
-app.use(lexgo.middlewares.logger)
 
 -- =========================
 -- ROOT
 -- =========================
 app.get("/", function(req, res)
-	res.status(200)
-	res.raw("root ok")
+	res.raw("root")
 end)
 
 -- =========================
@@ -28,7 +26,7 @@ app.get("/user/:id", function(req, res)
 end)
 
 app.get("/user/:id/:name", function(req, res)
-	res.raw("user + name " .. req.params.id)
+	res.raw("user name " .. req.params.name)
 end)
 
 app.get("/user/:id/details", function(req, res)
@@ -59,21 +57,14 @@ app.get("/priority/*", function(req, res)
 end)
 
 -- =========================
--- METHOD TESTS
+-- METHOD MATCHING
 -- =========================
 app.post("/method", function(req, res)
-	res.raw("POST OK")
+	res.raw("POST")
 end)
 
 app.get("/method", function(req, res)
-	res.raw("GET OK")
-end)
-
--- =========================
--- ERROR ROUTE
--- =========================
-app.get("/boom", function(req, res)
-	error("something exploded")
+	res.raw("GET")
 end)
 
 -- =========================
@@ -81,16 +72,7 @@ end)
 -- =========================
 app.notFound(function(req, res)
 	res.status(404)
-	res.raw("custom 404")
+	res.raw("not found")
 end)
 
--- =========================
--- ERROR HANDLER
--- =========================
-app.error(function(req, res, err)
-	print("ERROR:", err)
-	res.status(500)
-	res.raw("custom 500")
-end)
-
-app.listen(3000)
+app.listen(8081)

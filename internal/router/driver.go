@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"immodi/lexgo/internal/framework"
 	"immodi/lexgo/internal/vm"
 	"net/http"
@@ -15,20 +16,44 @@ type LuaHandler struct {
 func (h *LuaHandler) Handle(
 	luaReq *framework.LuaRequest,
 	luaRes *framework.LuaResponse,
-	args ...vm.LuaValue,
+	next func(),
+	args ...any,
 ) error {
+	vmCastedArgs := make([]vm.LuaValue, 0)
+	for _, arg := range args {
+		castedArg, ok := arg.(vm.LuaValue)
+		if !ok {
+			return fmt.Errorf("invalid arg type at %v", arg)
+		}
+
+		vmCastedArgs = append(vmCastedArgs, castedArg)
+	}
 
 	values := []vm.LuaValue{
 		luaReq.MakeLuaRequest(),
 		luaRes.MakeLuaResponse(),
 	}
 
-	values = append(values, args...)
+	if next != nil {
+		nextFn := h.luaVm.NewFunction(func(l vm.LVm) vm.LuaValue {
+			next()
+			return nil
+		})
+		values = append(values, nextFn)
+	}
 
-	return h.luaVm.RunFunction(
+	values = append(values, vmCastedArgs...)
+
+	err := h.luaVm.RunFunction(
 		h.luaFn,
 		values...,
 	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type GoHandler struct {
@@ -38,9 +63,15 @@ type GoHandler struct {
 func (h *GoHandler) Handle(
 	luaReq *framework.LuaRequest,
 	luaRes *framework.LuaResponse,
-	_ ...vm.LuaValue,
+	next func(),
+	args ...any,
 ) error {
 	h.fn(luaRes.HttpWriter, luaReq.HttpRequest)
+
+	if next != nil {
+		next()
+	}
+
 	return nil
 }
 

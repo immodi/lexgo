@@ -9,7 +9,7 @@ import (
 )
 
 func TestRouter_StaticRoute(t *testing.T) {
-	r, rd := router.MakeRouter()
+	r, rd := router.New()
 
 	r.AppendRoute(&router.Handler{
 		Pattern: "/hello",

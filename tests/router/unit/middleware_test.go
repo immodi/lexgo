@@ -9,17 +9,17 @@ import (
 )
 
 func TestRouter_MiddlewareMerge(t *testing.T) {
-	r, rd := router.MakeRouter()
+	r, rd := router.New()
 
 	globalMw := rd.MakeGoHandler(func(w http.ResponseWriter, req *http.Request) {})
 	routeMw := rd.MakeGoHandler(func(w http.ResponseWriter, req *http.Request) {})
 
-	r.Mws = []framework.RouterServerHandler{globalMw}
+	r.Mws = []framework.RouterHandler{globalMw}
 
 	r.AppendRoute(&router.Handler{
 		Pattern: "/hello",
 		Method:  framework.GET,
-		Mws:     []framework.RouterServerHandler{routeMw},
+		Mws:     []framework.RouterHandler{routeMw},
 		Handler: rd.MakeGoHandler(func(w http.ResponseWriter, req *http.Request) {}),
 	})
 
